@@ -18,6 +18,7 @@ import {
   Zap,
 } from "lucide-react";
 import { useFinancialChat } from "@/hooks/useFinancialChat";
+import { geminiAdvisor } from "@/services/geminiAiService";
 import { useGamification } from "@/hooks/useGamification";
 
 const suggestedQuestions = [
@@ -69,6 +70,16 @@ const getGreetingByTime = () => {
 
 export const FinancialAdvisor = () => {
   const { messages, isLoading, sendMessage, clearChat } = useFinancialChat();
+  const [isGeminiConnected, setIsGeminiConnected] = useState(geminiAdvisor.isConnected());
+  const [errorMsg, setErrorMsg] = useState<string | null>(null);
+
+  useEffect(() => {
+    setIsGeminiConnected(geminiAdvisor.isConnected());
+    // Listen for API key changes
+    const handleStorage = () => setIsGeminiConnected(geminiAdvisor.isConnected());
+    window.addEventListener('storage', handleStorage);
+    return () => window.removeEventListener('storage', handleStorage);
+  }, []);
   const [inputValue, setInputValue] = useState("");
   const [currentBot, setCurrentBot] = useState(botPersonalities[0]);
   const [isTyping, setIsTyping] = useState(false);
@@ -96,16 +107,16 @@ export const FinancialAdvisor = () => {
 
   const handleSendMessage = async (content: string) => {
     if (!content.trim()) return;
-
-    // Show typing animation
     setIsTyping(true);
     setMessageCount(prev => prev + 1);
-
-    await sendMessage(content);
+    try {
+      await sendMessage(content);
+      setErrorMsg(null);
+    } catch (err: any) {
+      setErrorMsg("Gemini AI is not connected or there was an error. Please check your API key in AI Settings.");
+    }
     setInputValue("");
     setIsTyping(false);
-
-    // Show heart animation occasionally (more frequent for first few messages)
     const heartChance = messageCount < 3 ? 0.8 : 0.3;
     if (Math.random() > heartChance) {
       setShowHeartAnimation(true);
@@ -175,10 +186,10 @@ export const FinancialAdvisor = () => {
               <span className="ml-2 hidden sm:inline">Clear</span>
             </Button>
           )}
-          <div className="flex items-center gap-2 px-3 py-1 bg-green-100 dark:bg-green-900/30 rounded-full">
-            <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
-            <span className="text-xs font-medium text-green-700 dark:text-green-400">
-              {localStorage.getItem('gemini_api_key') || import.meta.env.VITE_GEMINI_API_KEY ? 'Gemini AI' : 'Offline Mode'}
+          <div className={`flex items-center gap-2 px-3 py-1 rounded-full ${isGeminiConnected ? 'bg-green-100 dark:bg-green-900/30' : 'bg-red-100 dark:bg-red-900/30'}`}> 
+            <div className={`w-2 h-2 rounded-full animate-pulse ${isGeminiConnected ? 'bg-green-500' : 'bg-red-500'}`}></div>
+            <span className={`text-xs font-medium ${isGeminiConnected ? 'text-green-700 dark:text-green-400' : 'text-red-700 dark:text-red-400'}`}>
+              {isGeminiConnected ? 'Gemini AI Connected' : 'Gemini AI Offline'}
             </span>
           </div>
         </div>
@@ -430,8 +441,8 @@ export const FinancialAdvisor = () => {
               </div>
               <div className="flex items-center gap-2">
                 <span className="flex items-center gap-1.5 text-muted-foreground">
-                  <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
-                  <span className="font-medium">{currentBot.name} is online</span>
+                  <div className={`w-2 h-2 rounded-full animate-pulse ${isGeminiConnected ? 'bg-green-500' : 'bg-red-500'}`}></div>
+                  <span className="font-medium">{isGeminiConnected ? `${currentBot.name} is online` : `${currentBot.name} is offline`}</span>
                 </span>
               </div>
             </div>
@@ -441,6 +452,14 @@ export const FinancialAdvisor = () => {
               <div className="mt-2 text-center">
                 <span className="text-xs text-muted-foreground bg-muted/50 px-3 py-1 rounded-full">
                   💬 {messageCount} message{messageCount !== 1 ? 's' : ''} sent
+                </span>
+              </div>
+            )}
+            {/* Error Message */}
+            {errorMsg && (
+              <div className="mt-2 text-center">
+                <span className="text-xs text-red-600 bg-red-100 dark:bg-red-900/30 px-3 py-1 rounded-full">
+                  {errorMsg}
                 </span>
               </div>
             )}

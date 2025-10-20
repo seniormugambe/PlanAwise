@@ -1,11 +1,30 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 import { Wallet, WalletTransaction, WalletSummary } from '@/types/wallet';
 import { mockWallets } from '@/data/wallets';
 import { mockTransactions } from '@/data/transactions';
+import { useWeb3Wallets } from '@/hooks/useWeb3Wallets';
 
 export const useWallets = () => {
-  const [wallets, setWallets] = useState<Wallet[]>(mockWallets);
-  const [transactions, setTransactions] = useState<WalletTransaction[]>(mockTransactions);
+  const [wallets, setWallets] = useState<Wallet[]>([]);
+  const [transactions, setTransactions] = useState<WalletTransaction[]>([]);
+  const { connectedWallets, isConnected } = useWeb3Wallets();
+
+  // Initialize with mock data and merge with connected wallets
+  useEffect(() => {
+    try {
+      // Combine mock wallets with real connected wallets
+      const allWallets = isConnected && connectedWallets.length > 0 
+        ? [...connectedWallets, ...mockWallets.slice(1)] // Replace first mock wallet with real one
+        : mockWallets;
+      
+      setWallets(allWallets);
+      setTransactions(mockTransactions);
+    } catch (error) {
+      console.error('Error loading wallet data:', error);
+      setWallets(mockWallets);
+      setTransactions([]);
+    }
+  }, [connectedWallets, isConnected]);
 
   const getWalletById = useCallback((id: string) => {
     return wallets.find(wallet => wallet.id === id);

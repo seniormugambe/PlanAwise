@@ -1,15 +1,17 @@
 export interface Wallet {
   id: string;
   name: string;
-  type: 'checking' | 'savings' | 'credit' | 'investment' | 'crypto' | 'cash';
+  type: 'ethereum' | 'polygon' | 'bsc' | 'arbitrum' | 'optimism' | 'base' | 'celo' | 'avalanche' | 'fantom' | 'solana';
   balance: number;
   currency: string;
   color: string;
   icon: string;
   isActive: boolean;
   lastUpdated: Date;
-  bankName?: string;
-  accountNumber?: string;
+  network: string;
+  address: string;
+  chainId?: number;
+  nativeToken?: string;
 }
 
 export interface WalletTransaction {

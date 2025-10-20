@@ -14,24 +14,62 @@ import {
   Search,
   Filter,
   Calendar,
-  Wallet
+  Wallet,
+  Copy,
+  ExternalLink
 } from "lucide-react";
-import { mockWallets } from "@/data/wallets";
-import { mockTransactions } from "@/data/transactions";
-import { useState } from "react";
+import { AddWalletDialog } from "@/components/AddWalletDialog";
+import { NetworkSwitcher } from "@/components/NetworkSwitcher";
+import { useWallets } from "@/hooks/useWallets";
+import { useWeb3Wallets } from "@/hooks/useWeb3Wallets";
+import React, { useState } from "react";
+import { toast } from "sonner";
 
 export const WalletManager = () => {
-  const [selectedWallet, setSelectedWallet] = useState(mockWallets[0]);
-  const [transactions] = useState(mockTransactions);
+  const { wallets, transactions, addWallet, getWalletTransactions } = useWallets();
+  const { isConnected, refreshBalance } = useWeb3Wallets();
+  const [selectedWallet, setSelectedWallet] = useState<any>(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [filterType, setFilterType] = useState('all');
 
-  const walletTransactions = transactions.filter(t => 
-    t.walletId === selectedWallet.id &&
+  // Set the first wallet as selected when wallets are loaded
+  React.useEffect(() => {
+    if (wallets.length > 0 && !selectedWallet) {
+      setSelectedWallet(wallets[0]);
+    }
+  }, [wallets, selectedWallet]);
+
+  const walletTransactions = selectedWallet ? getWalletTransactions(selectedWallet.id).filter(t => 
     (searchTerm === '' || t.description.toLowerCase().includes(searchTerm.toLowerCase()) || 
      t.category.toLowerCase().includes(searchTerm.toLowerCase())) &&
     (filterType === 'all' || t.type === filterType)
-  );
+  ) : [];
+
+  const handleAddWallet = (walletData: any) => {
+    const newWallet = addWallet(walletData);
+    toast.success(`${newWallet.name} wallet added successfully!`);
+  };
+
+  const copyAddress = (address: string) => {
+    navigator.clipboard.writeText(address);
+    toast.success('Address copied to clipboard!');
+  };
+
+  const getExplorerUrl = (wallet: any) => {
+    const explorers: Record<string, string> = {
+      ethereum: 'https://etherscan.io/address/',
+      polygon: 'https://polygonscan.com/address/',
+      bsc: 'https://bscscan.com/address/',
+      arbitrum: 'https://arbiscan.io/address/',
+      optimism: 'https://optimistic.etherscan.io/address/',
+      base: 'https://basescan.org/address/',
+      celo: 'https://celoscan.io/address/',
+      avalanche: 'https://snowtrace.io/address/',
+      fantom: 'https://ftmscan.com/address/',
+      solana: 'https://solscan.io/account/'
+    };
+    return explorers[wallet.type] + wallet.address;
+  };
 
   const getTransactionIcon = (type: string) => {
     switch (type) {
@@ -42,8 +80,26 @@ export const WalletManager = () => {
     }
   };
 
+  if (wallets.length === 0) {
+    return (
+      <div className="space-y-6">
+        <Card className="shadow-card">
+          <CardContent className="p-8 text-center">
+            <Wallet className="w-12 h-12 mx-auto mb-4 text-muted-foreground" />
+            <p className="text-muted-foreground">Loading wallets...</p>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-6">
+      {/* Network Switcher */}
+      {isConnected && (
+        <NetworkSwitcher />
+      )}
+
       {/* Wallet Selector */}
       <Card className="shadow-card">
         <CardHeader>
@@ -53,11 +109,11 @@ export const WalletManager = () => {
           </CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
-            {mockWallets.map((wallet) => (
+          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6 gap-3 mb-4">
+            {wallets.map((wallet) => (
               <Button
                 key={wallet.id}
-                variant={selectedWallet.id === wallet.id ? "default" : "outline"}
+                variant={selectedWallet?.id === wallet.id ? "default" : "outline"}
                 className="h-auto p-3 flex flex-col items-center gap-2"
                 onClick={() => setSelectedWallet(wallet)}
               >
@@ -65,41 +121,72 @@ export const WalletManager = () => {
                   <Wallet className="w-4 h-4 text-white" />
                 </div>
                 <div className="text-center">
-                  <div className="text-xs font-medium">{wallet.name}</div>
+                  <div className="text-xs font-medium truncate max-w-20">{wallet.name}</div>
                   <div className="text-xs text-muted-foreground">
                     ${wallet.balance.toLocaleString()}
+                  </div>
+                  <div className="text-xs text-muted-foreground">
+                    {wallet.nativeToken}
                   </div>
                 </div>
               </Button>
             ))}
           </div>
+          <div className="flex justify-center">
+            <AddWalletDialog onAddWallet={handleAddWallet} />
+          </div>
         </CardContent>
       </Card>
 
       {/* Selected Wallet Details */}
-      <Card className="shadow-card">
-        <CardHeader>
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <div className={`p-3 rounded-lg ${selectedWallet.color}`}>
-                <Wallet className="w-6 h-6 text-white" />
+      {selectedWallet && (
+        <Card className="shadow-card">
+          <CardHeader>
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className={`p-3 rounded-lg ${selectedWallet.color}`}>
+                  <Wallet className="w-6 h-6 text-white" />
+                </div>
+                <div>
+                  <h3 className="text-xl font-bold">{selectedWallet.name}</h3>
+                  <p className="text-muted-foreground">
+                    {selectedWallet.network} • Chain ID: {selectedWallet.chainId}
+                  </p>
+                  <div className="flex items-center gap-2 mt-1">
+                    <code className="text-xs bg-muted px-2 py-1 rounded">
+                      {selectedWallet.address.slice(0, 6)}...{selectedWallet.address.slice(-4)}
+                    </code>
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      className="h-6 w-6 p-0"
+                      onClick={() => copyAddress(selectedWallet.address)}
+                    >
+                      <Copy className="w-3 h-3" />
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      className="h-6 w-6 p-0"
+                      onClick={() => window.open(getExplorerUrl(selectedWallet), '_blank')}
+                    >
+                      <ExternalLink className="w-3 h-3" />
+                    </Button>
+                  </div>
+                </div>
               </div>
-              <div>
-                <h3 className="text-xl font-bold">{selectedWallet.name}</h3>
-                <p className="text-muted-foreground">
-                  {selectedWallet.bankName} • {selectedWallet.accountNumber}
-                </p>
+              <div className="text-right">
+                <div className="text-2xl font-bold">
+                  ${selectedWallet.balance.toLocaleString()}
+                </div>
+                <Badge variant="secondary" className="capitalize">
+                  {selectedWallet.nativeToken}
+                </Badge>
               </div>
             </div>
-            <div className="text-right">
-              <div className="text-2xl font-bold">
-                ${selectedWallet.balance.toLocaleString()}
-              </div>
-              <Badge variant="secondary">{selectedWallet.type}</Badge>
-            </div>
-          </div>
-        </CardHeader>
-      </Card>
+          </CardHeader>
+        </Card>
+      )}
 
       {/* Transaction Management */}
       <Card className="shadow-card">

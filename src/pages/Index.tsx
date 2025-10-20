@@ -30,7 +30,7 @@ const Index = () => {
             <TabsTrigger value="investments">Investments</TabsTrigger>
             <TabsTrigger value="integration">Integration</TabsTrigger>
             <TabsTrigger value="notifications">Notifications</TabsTrigger>
-            <TabsTrigger value="wallets">Wallets</TabsTrigger>
+            {/* <TabsTrigger value="wallets">Wallets</TabsTrigger> */}
           </TabsList>
           
           <TabsContent value="dashboard" className="space-y-6 mt-6">

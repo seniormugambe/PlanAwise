@@ -11,9 +11,8 @@ import {
   Plus,
   Eye,
   EyeOff,
-  CreditCard,
-  PiggyBank,
-  Bitcoin
+  Coins,
+  Globe
 } from "lucide-react";
 import { useWallets } from "@/hooks/useWallets";
 import { useState } from "react";
@@ -21,16 +20,29 @@ import { useNavigate } from "react-router-dom";
 
 const iconMap = {
   Wallet,
-  CreditCard,
-  PiggyBank,
+  Coins,
+  Globe,
   TrendingUp,
-  Bitcoin,
 };
 
 export const WalletDashboard = () => {
   const { wallets, transactions, getWalletSummary } = useWallets();
   const [showBalances, setShowBalances] = useState(true);
   const navigate = useNavigate();
+  
+  // Show loading state if wallets haven't loaded yet
+  if (wallets.length === 0) {
+    return (
+      <div className="space-y-6">
+        <Card className="wallet-card animate-fade-in">
+          <CardContent className="p-8 text-center">
+            <Wallet className="w-12 h-12 mx-auto mb-4 text-muted-foreground animate-pulse" />
+            <p className="text-muted-foreground">Loading wallet data...</p>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
   
   const summary = getWalletSummary();
   const recentTransactions = transactions
@@ -137,7 +149,7 @@ export const WalletDashboard = () => {
           <CardContent className="space-y-3">
             {wallets.slice(0, 4).map((wallet, index) => {
               const IconComponent = iconMap[wallet.icon as keyof typeof iconMap] || Wallet;
-              const isNegative = wallet.balance < 0;
+              // Web3 wallets don't have negative balances
               
               return (
                 <div 
@@ -146,13 +158,13 @@ export const WalletDashboard = () => {
                   style={{ animationDelay: `${index * 0.1}s` }}
                 >
                   <div className="flex items-center gap-3">
-                    <div className={`p-2 rounded-lg ${wallet.color}/10 transition-all duration-300 hover:scale-110`}>
-                      <IconComponent className={`w-4 h-4 ${wallet.color.replace('bg-', 'text-')}`} />
+                    <div className={`p-2 rounded-lg ${wallet.color} transition-all duration-300 hover:scale-110`}>
+                      <IconComponent className="w-4 h-4 text-white" />
                     </div>
                     <div className="flex-1">
                       <div className="font-medium text-balance">{wallet.name}</div>
-                      <div className="text-sm text-muted-foreground capitalize">
-                        {wallet.type}
+                      <div className="text-sm text-muted-foreground">
+                        {wallet.network} • {wallet.nativeToken}
                       </div>
                     </div>
                     <div className={`font-semibold transition-colors duration-300 ${

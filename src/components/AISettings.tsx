@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { geminiAdvisor } from "@/services/geminiAiService";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -25,20 +26,12 @@ export const AISettings = () => {
 
   const handleSaveKey = async () => {
     if (!apiKey.trim()) return;
-    
     setIsLoading(true);
-    
     try {
-      // Store the API key locally
       localStorage.setItem('gemini_api_key', apiKey.trim());
-      
-      // Test the connection (you could add a test API call here)
+      await geminiAdvisor.reinitialize();
       await new Promise(resolve => setTimeout(resolve, 1000));
-      
       setIsConnected(true);
-      
-      // Reload the page to reinitialize Gemini with new key
-      window.location.reload();
     } catch (error) {
       console.error('Failed to save API key:', error);
     } finally {
@@ -46,10 +39,11 @@ export const AISettings = () => {
     }
   };
 
-  const handleRemoveKey = () => {
+  const handleRemoveKey = async () => {
     localStorage.removeItem('gemini_api_key');
     setApiKey("");
     setIsConnected(false);
+    await geminiAdvisor.reinitialize();
   };
 
   const maskedKey = apiKey ? `${apiKey.slice(0, 8)}...${apiKey.slice(-4)}` : "";

@@ -1,53 +1,69 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Progress } from "@/components/ui/progress";
 import { 
   Wallet, 
-  CreditCard, 
-  PiggyBank, 
+  Coins,
+  Globe,
   TrendingUp, 
-  Bitcoin, 
   Plus,
   Eye,
   EyeOff,
-  MoreHorizontal
+  MoreHorizontal,
+  Copy,
+  ExternalLink
 } from "lucide-react";
-import { mockWallets } from "@/data/wallets";
+import { useWallets } from "@/hooks/useWallets";
 import { Wallet as WalletType } from "@/types/wallet";
 import { useState } from "react";
+import { toast } from "sonner";
 
 const iconMap = {
   Wallet,
-  CreditCard,
-  PiggyBank,
+  Coins,
+  Globe,
   TrendingUp,
-  Bitcoin,
 };
 
 const getWalletTypeLabel = (type: WalletType['type']) => {
   const labels = {
-    checking: 'Checking',
-    savings: 'Savings',
-    credit: 'Credit Card',
-    investment: 'Investment',
-    crypto: 'Crypto',
-    cash: 'Cash'
+    ethereum: 'Ethereum',
+    polygon: 'Polygon',
+    bsc: 'BSC',
+    arbitrum: 'Arbitrum',
+    optimism: 'Optimism',
+    base: 'Base',
+    celo: 'Celo',
+    avalanche: 'Avalanche',
+    fantom: 'Fantom',
+    solana: 'Solana'
   };
   return labels[type];
 };
 
 export const WalletOverview = () => {
+  const { wallets } = useWallets();
   const [showBalances, setShowBalances] = useState(true);
-  const [wallets] = useState(mockWallets);
+
+  if (wallets.length === 0) {
+    return (
+      <Card className="shadow-card">
+        <CardContent className="p-8 text-center">
+          <Wallet className="w-12 h-12 mx-auto mb-4 text-muted-foreground animate-pulse" />
+          <p className="text-muted-foreground">Loading wallets...</p>
+        </CardContent>
+      </Card>
+    );
+  }
 
   const totalBalance = wallets.reduce((sum, wallet) => sum + wallet.balance, 0);
-  const totalAssets = wallets
-    .filter(w => w.balance > 0)
-    .reduce((sum, wallet) => sum + wallet.balance, 0);
-  const totalLiabilities = Math.abs(wallets
-    .filter(w => w.balance < 0)
-    .reduce((sum, wallet) => sum + wallet.balance, 0));
+  const totalAssets = wallets.reduce((sum, wallet) => sum + wallet.balance, 0); // Web3 wallets don't have negative balances
+  const totalLiabilities = 0; // Web3 wallets don't have liabilities
+
+  const copyAddress = (address: string) => {
+    navigator.clipboard.writeText(address);
+    toast.success('Address copied to clipboard!');
+  };
 
   return (
     <Card className="shadow-card">
@@ -97,14 +113,13 @@ export const WalletOverview = () => {
       
       <CardContent className="space-y-4">
         {wallets.map((wallet) => {
-          const IconComponent = iconMap[wallet.icon as keyof typeof iconMap] || Wallet;
-          const isNegative = wallet.balance < 0;
+          const IconComponent = iconMap[wallet.icon as keyof typeof iconMap] || Coins;
           
           return (
             <div key={wallet.id} className="flex items-center justify-between p-4 rounded-lg border bg-gradient-card hover:shadow-card transition-all duration-200">
               <div className="flex items-center gap-3">
-                <div className={`p-2 rounded-lg ${wallet.color}/10`}>
-                  <IconComponent className={`w-5 h-5 ${wallet.color.replace('bg-', 'text-')}`} />
+                <div className={`p-2 rounded-lg ${wallet.color}`}>
+                  <IconComponent className="w-5 h-5 text-white" />
                 </div>
                 <div>
                   <div className="flex items-center gap-2">
@@ -113,23 +128,32 @@ export const WalletOverview = () => {
                       {getWalletTypeLabel(wallet.type)}
                     </Badge>
                   </div>
-                  <div className="text-sm text-muted-foreground">
-                    {wallet.bankName && `${wallet.bankName} • `}
-                    {wallet.accountNumber}
+                  <div className="text-sm text-muted-foreground flex items-center gap-2">
+                    <code className="text-xs bg-muted px-2 py-1 rounded">
+                      {wallet.address.slice(0, 6)}...{wallet.address.slice(-4)}
+                    </code>
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      className="h-5 w-5 p-0"
+                      onClick={() => copyAddress(wallet.address)}
+                    >
+                      <Copy className="w-3 h-3" />
+                    </Button>
                   </div>
                 </div>
               </div>
               
               <div className="flex items-center gap-3">
                 <div className="text-right">
-                  <div className={`font-semibold ${isNegative ? 'text-expense-red' : 'text-foreground'}`}>
+                  <div className="font-semibold text-foreground">
                     {showBalances ? 
-                      `${isNegative ? '-' : ''}$${Math.abs(wallet.balance).toLocaleString()}` : 
+                      `$${wallet.balance.toLocaleString()}` : 
                       '••••••'
                     }
                   </div>
                   <div className="text-xs text-muted-foreground">
-                    {wallet.currency}
+                    {wallet.nativeToken}
                   </div>
                 </div>
                 <Button variant="ghost" size="sm">

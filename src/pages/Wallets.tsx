@@ -3,6 +3,7 @@ import { WalletOverview } from "@/components/WalletOverview";
 import { WalletManager } from "@/components/WalletManager";
 import { WalletTransfer } from "@/components/WalletTransfer";
 import { WalletAnalytics } from "@/components/WalletAnalytics";
+import { WalletConnect } from "@/components/WalletConnect";
 import { Button } from "@/components/ui/button";
 import { ArrowLeft } from "lucide-react";
 import { useNavigate } from "react-router-dom";
@@ -33,8 +34,13 @@ const Wallets = () => {
           </div>
         </div>
 
-        {/* Wallet Tabs */}
+        {/* Web3 Connection */}
         <div className="animate-slide-up" style={{ animationDelay: '0.1s' }}>
+          <WalletConnect />
+        </div>
+
+        {/* Wallet Tabs */}
+        <div className="animate-slide-up" style={{ animationDelay: '0.2s' }}>
           <Tabs defaultValue="overview" className="w-full">
             <TabsList className="grid w-full grid-cols-4 glass">
               <TabsTrigger value="overview" className="transition-all duration-300">Overview</TabsTrigger>

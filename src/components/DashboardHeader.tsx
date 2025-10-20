@@ -3,6 +3,7 @@ import { ThemeToggle } from "@/components/ThemeToggle";
 import { AISettings } from "@/components/AISettings";
 import { XPIndicator } from "@/components/XPIndicator";
 import { AddGoalDialog } from "@/components/AddGoalDialog";
+import { Web3Status } from "@/components/Web3Status";
 import { Settings, Wallet } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 
@@ -26,6 +27,9 @@ export const DashboardHeader = () => {
       </div>
       
       <div className="flex items-center gap-3 flex-wrap">
+        {/* Web3 Status */}
+        <Web3Status variant="compact" />
+        
         <ThemeToggle />
         <AISettings />
         <Button variant="outline" size="sm" onClick={() => navigate('/wallets')}>
