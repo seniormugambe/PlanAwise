@@ -1,7 +1,7 @@
 export interface Wallet {
   id: string;
   name: string;
-  type: 'ethereum' | 'polygon' | 'bsc' | 'arbitrum' | 'optimism' | 'base' | 'celo' | 'avalanche' | 'fantom' | 'solana';
+  type: 'ethereum' | 'polygon' | 'bsc' | 'arbitrum' | 'optimism' | 'base' | 'celo' | 'avalanche' | 'fantom' | 'solana' | 'bank' | 'atm_card' | 'mobile_money';
   balance: number;
   currency: string;
   color: string;
@@ -12,6 +12,15 @@ export interface Wallet {
   address: string;
   chainId?: number;
   nativeToken?: string;
+  // Bank/Payment specific fields
+  bankName?: string;
+  accountNumber?: string;
+  accountHolder?: string;
+  routingNumber?: string;
+  cardNumber?: string;
+  cardExpiry?: string;
+  mobileProvider?: string; // e.g., M-Pesa, GCash, Airtel Money
+  phoneNumber?: string;
 }
 
 export interface WalletTransaction {

@@ -4,12 +4,16 @@ import { WalletManager } from "@/components/WalletManager";
 import { WalletTransfer } from "@/components/WalletTransfer";
 import { WalletAnalytics } from "@/components/WalletAnalytics";
 import { WalletConnect } from "@/components/WalletConnect";
+import { PaymentMethodsDisplay } from "@/components/PaymentMethodsDisplay";
+import { PaymentTransfer } from "@/components/PaymentTransfer";
 import { Button } from "@/components/ui/button";
 import { ArrowLeft } from "lucide-react";
 import { useNavigate } from "react-router-dom";
+import { useWallets } from "@/hooks/useWallets";
 
 const Wallets = () => {
   const navigate = useNavigate();
+  const { wallets } = useWallets();
 
   return (
     <div className="min-h-screen bg-background pattern-grid">
@@ -42,9 +46,10 @@ const Wallets = () => {
         {/* Wallet Tabs */}
         <div className="animate-slide-up" style={{ animationDelay: '0.2s' }}>
           <Tabs defaultValue="overview" className="w-full">
-            <TabsList className="grid w-full grid-cols-4 glass">
+            <TabsList className="grid w-full grid-cols-5 glass">
               <TabsTrigger value="overview" className="transition-all duration-300">Overview</TabsTrigger>
               <TabsTrigger value="manage" className="transition-all duration-300">Manage</TabsTrigger>
+              <TabsTrigger value="payments" className="transition-all duration-300">Payments</TabsTrigger>
               <TabsTrigger value="transfer" className="transition-all duration-300">Transfer</TabsTrigger>
               <TabsTrigger value="analytics" className="transition-all duration-300">Analytics</TabsTrigger>
             </TabsList>
@@ -55,6 +60,11 @@ const Wallets = () => {
 
             <TabsContent value="manage" className="space-y-6 animate-fade-in">
               <WalletManager />
+            </TabsContent>
+
+            <TabsContent value="payments" className="space-y-6 animate-fade-in">
+              <PaymentMethodsDisplay wallets={wallets} />
+              <PaymentTransfer />
             </TabsContent>
 
             <TabsContent value="transfer" className="space-y-6 animate-fade-in">
