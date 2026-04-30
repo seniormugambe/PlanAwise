@@ -1,29 +1,50 @@
 import { useState, useCallback, useEffect } from 'react';
 import { Wallet, WalletTransaction, WalletSummary } from '@/types/wallet';
-import { mockWallets } from '@/data/wallets';
-import { mockTransactions } from '@/data/transactions';
 import { useWeb3Wallets } from '@/hooks/useWeb3Wallets';
+
+const parseWallet = (raw: any): Wallet => ({
+  ...raw,
+  lastUpdated: new Date(raw.lastUpdated),
+});
+
+const parseTransaction = (raw: any): WalletTransaction => ({
+  ...raw,
+  date: new Date(raw.date),
+});
 
 export const useWallets = () => {
   const [wallets, setWallets] = useState<Wallet[]>([]);
   const [transactions, setTransactions] = useState<WalletTransaction[]>([]);
   const { connectedWallets, isConnected } = useWeb3Wallets();
 
-  // Initialize with mock data and merge with connected wallets
   useEffect(() => {
-    try {
-      // Combine mock wallets with real connected wallets
-      const allWallets = isConnected && connectedWallets.length > 0 
-        ? [...connectedWallets, ...mockWallets.slice(1)] // Replace first mock wallet with real one
-        : mockWallets;
-      
-      setWallets(allWallets);
-      setTransactions(mockTransactions);
-    } catch (error) {
-      console.error('Error loading wallet data:', error);
-      setWallets(mockWallets);
-      setTransactions([]);
-    }
+    const fetchWalletData = async () => {
+      try {
+        const response = await fetch('/api/data/wallets');
+        if (!response.ok) {
+          throw new Error('Failed to load wallet data');
+        }
+
+        const data = await response.json();
+        const backendWallets = Array.isArray(data.wallets) ? data.wallets.map(parseWallet) : [];
+        const backendTransactions = Array.isArray(data.transactions)
+          ? data.transactions.map(parseTransaction)
+          : [];
+
+        const allWallets = isConnected && connectedWallets.length > 0
+          ? [...connectedWallets, ...backendWallets.slice(1)]
+          : backendWallets;
+
+        setWallets(allWallets);
+        setTransactions(backendTransactions);
+      } catch (error) {
+        console.error('Error loading wallet data:', error);
+        setWallets([]);
+        setTransactions([]);
+      }
+    };
+
+    fetchWalletData();
   }, [connectedWallets, isConnected]);
 
   const getWalletById = useCallback((id: string) => {

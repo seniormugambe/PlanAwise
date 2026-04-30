@@ -4,19 +4,19 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
-import { ArrowLeftRight, ArrowRight, Wallet } from "lucide-react";
-import { mockWallets } from "@/data/wallets";
+import { ArrowLeftRight, ArrowRight } from "lucide-react";
 import { useState } from "react";
-import { Wallet as WalletType } from "@/types/wallet";
+import { useWallets } from '@/hooks/useWallets';
 
 export const WalletTransfer = () => {
+  const { wallets, transferBetweenWallets } = useWallets();
   const [fromWallet, setFromWallet] = useState<string>('');
   const [toWallet, setToWallet] = useState<string>('');
   const [amount, setAmount] = useState<string>('');
   const [description, setDescription] = useState<string>('');
   const [isProcessing, setIsProcessing] = useState(false);
 
-  const availableWallets = mockWallets.filter(w => w.isActive);
+  const availableWallets = wallets.filter(w => w.isActive);
   const fromWalletData = availableWallets.find(w => w.id === fromWallet);
   const toWalletData = availableWallets.find(w => w.id === toWallet);
 
@@ -26,18 +26,20 @@ export const WalletTransfer = () => {
     }
 
     setIsProcessing(true);
-    
-    // Simulate API call
-    setTimeout(() => {
-      setIsProcessing(false);
-      // Reset form
+
+    try {
+      transferBetweenWallets(fromWallet, toWallet, Number(amount), description || 'Wallet Transfer');
+      alert('Transfer completed successfully!');
       setFromWallet('');
       setToWallet('');
       setAmount('');
       setDescription('');
-      // Show success message (you could add a toast here)
-      alert('Transfer completed successfully!');
-    }, 2000);
+    } catch (error: any) {
+      console.error('Transfer error:', error);
+      alert(error?.message || 'Unable to complete transfer.');
+    } finally {
+      setIsProcessing(false);
+    }
   };
 
   const canTransfer = fromWallet && toWallet && amount && 

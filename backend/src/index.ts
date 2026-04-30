@@ -8,6 +8,7 @@ import { FinancialAdvisorAgent } from "./agents/financialAdvisorAgent.js";
 import { ReceiptTrackerAgent } from "./agents/receiptTrackerAgent.js";
 import { GeminiAI } from "./agents/geminiAgent.js";
 import { AgentManager } from "./agents/agentManager.js";
+import { wallets, transactions, goals, gamificationStats } from "./data/mockData.js";
 
 dotenv.config();
 
@@ -159,6 +160,18 @@ app.post("/api/ai/receipts", async (req, res) => {
 
 app.get("/api/ai/receipts", (req, res) => {
   return res.json({ receipts: receiptAgent.getReceipts() });
+});
+
+app.get("/api/data/wallets", (req, res) => {
+  return res.json({ wallets, transactions });
+});
+
+app.get("/api/data/goals", (req, res) => {
+  return res.json({ goals });
+});
+
+app.get("/api/data/gamification", (req, res) => {
+  return res.json({ stats: gamificationStats });
 });
 
 app.get("/api/ai/status", async (req, res) => {

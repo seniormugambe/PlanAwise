@@ -1,10 +1,36 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 import { FinancialGoal, GoalProgress, GoalSummary } from '@/types/goal';
-import { mockGoals } from '@/data/goals';
+
+const parseGoal = (raw: any): FinancialGoal => ({
+  ...raw,
+  targetDate: new Date(raw.targetDate),
+  createdAt: new Date(raw.createdAt),
+  updatedAt: new Date(raw.updatedAt),
+});
 
 export const useGoals = () => {
-  const [goals, setGoals] = useState<FinancialGoal[]>(mockGoals);
+  const [goals, setGoals] = useState<FinancialGoal[]>([]);
   const [goalProgress, setGoalProgress] = useState<GoalProgress[]>([]);
+
+  useEffect(() => {
+    const fetchGoals = async () => {
+      try {
+        const response = await fetch('/api/data/goals');
+        if (!response.ok) {
+          throw new Error('Failed to load goals');
+        }
+
+        const data = await response.json();
+        const backendGoals = Array.isArray(data.goals) ? data.goals.map(parseGoal) : [];
+        setGoals(backendGoals);
+      } catch (error) {
+        console.error('Error loading goals:', error);
+        setGoals([]);
+      }
+    };
+
+    fetchGoals();
+  }, []);
 
   const getGoalById = useCallback((id: string) => {
     return goals.find(goal => goal.id === id);

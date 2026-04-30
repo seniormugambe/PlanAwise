@@ -1,11 +1,81 @@
-import { useState, useCallback } from 'react';
-import { GamificationStats, Achievement, Challenge, Streak } from '@/types/gamification';
-import { mockGamificationStats } from '@/data/gamification';
+import { useState, useCallback, useEffect } from 'react';
+import { GamificationStats, Achievement, Challenge, Streak, Badge } from '@/types/gamification';
+
+const initialGamificationStats: GamificationStats = {
+  totalXP: 0,
+  level: {
+    level: 1,
+    title: 'Financial Novice',
+    currentXP: 0,
+    xpToNext: 100,
+    totalXP: 0,
+    perks: []
+  },
+  achievements: [],
+  streaks: [],
+  challenges: [],
+  badges: [],
+  weeklyXP: 0,
+  monthlyXP: 0,
+  rank: 'N/A',
+  nextMilestone: {
+    name: 'First milestone',
+    progress: 0,
+    target: 100
+  }
+};
+
+const parseStats = (raw: any): GamificationStats => ({
+  ...raw,
+  achievements: Array.isArray(raw.achievements)
+    ? raw.achievements.map((achievement: any) => ({
+        ...achievement,
+        unlockedAt: achievement.unlockedAt ? new Date(achievement.unlockedAt) : undefined,
+      }))
+    : [],
+  streaks: Array.isArray(raw.streaks)
+    ? raw.streaks.map((streak: any) => ({
+        ...streak,
+        lastActivity: new Date(streak.lastActivity),
+      }))
+    : [],
+  challenges: Array.isArray(raw.challenges)
+    ? raw.challenges.map((challenge: any) => ({
+        ...challenge,
+        deadline: new Date(challenge.deadline),
+      }))
+    : [],
+  badges: Array.isArray(raw.badges)
+    ? raw.badges.map((badge: any) => ({
+        ...badge,
+        earnedAt: new Date(badge.earnedAt),
+      }))
+    : [],
+});
 
 export const useGamification = () => {
-  const [stats, setStats] = useState<GamificationStats>(mockGamificationStats);
+  const [stats, setStats] = useState<GamificationStats>(initialGamificationStats);
   const [showLevelUp, setShowLevelUp] = useState(false);
   const [showAchievement, setShowAchievement] = useState<Achievement | null>(null);
+
+  useEffect(() => {
+    const fetchStats = async () => {
+      try {
+        const response = await fetch('/api/data/gamification');
+        if (!response.ok) {
+          throw new Error('Failed to load gamification stats');
+        }
+
+        const data = await response.json();
+        setStats(parseStats(data.stats));
+      } catch (error) {
+        console.error('Error loading gamification stats:', error);
+        setStats(initialGamificationStats);
+      }
+    };
+
+    fetchStats();
+  }, []);
 
   const addXP = useCallback((amount: number, reason?: string) => {
     setStats(prev => {
