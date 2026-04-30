@@ -4,8 +4,8 @@ import type { AgentResponse, FinancialContext } from '../types.js';
 export class FinancialAdvisorAgent {
   private ai: GeminiAI;
 
-  constructor(defaultApiKey?: string) {
-    this.ai = new GeminiAI(defaultApiKey);
+  constructor(gemini: GeminiAI) {
+    this.ai = gemini;
   }
 
   async getAdvice(question: string, context?: FinancialContext, apiKey?: string): Promise<AgentResponse> {

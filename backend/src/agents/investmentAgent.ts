@@ -1,7 +1,19 @@
+import { GeminiAI } from './geminiAgent.js';
 import type { AgentResponse, FinancialContext, Transaction } from '../types.js';
 
 export class InvestmentAgent {
-  getInvestmentAdvice(context: FinancialContext, transactions: Transaction[] = [], question?: string): AgentResponse {
+  private gemini?: GeminiAI;
+
+  constructor(gemini?: GeminiAI) {
+    this.gemini = gemini;
+  }
+
+  async getInvestmentAdvice(context: FinancialContext, transactions: Transaction[] = [], question?: string, apiKey?: string): Promise<AgentResponse> {
+    if (this.gemini && await this.gemini.isConnected(apiKey)) {
+      const prompt = `You are an investment advisor. Provide a recommendation based on the user's financial profile, risk tolerance, and current cash flow.\n\nUser context: ${JSON.stringify(context)}\nTransactions: ${JSON.stringify(transactions)}\nQuestion: ${question || 'Give general investment guidance.'}`;
+      return this.gemini.ask(prompt, apiKey);
+    }
+
     const risk = context.riskTolerance || 'moderate';
     const savings = context.currentSavings || 0;
     const monthlyIncome = context.monthlyIncome || 0;

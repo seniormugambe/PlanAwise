@@ -6,6 +6,8 @@ import { SavingsAgent } from "./agents/savingsAgent.js";
 import { InvestmentAgent } from "./agents/investmentAgent.js";
 import { FinancialAdvisorAgent } from "./agents/financialAdvisorAgent.js";
 import { ReceiptTrackerAgent } from "./agents/receiptTrackerAgent.js";
+import { GeminiAI } from "./agents/geminiAgent.js";
+import { AgentManager } from "./agents/agentManager.js";
 
 dotenv.config();
 
@@ -13,11 +15,49 @@ const app = express();
 app.use(cors());
 app.use(express.json());
 
-const budgetAgent = new BudgetAgent();
-const savingsAgent = new SavingsAgent();
-const investmentAgent = new InvestmentAgent();
-const advisorAgent = new FinancialAdvisorAgent(process.env.GEMINI_API_KEY);
-const receiptAgent = new ReceiptTrackerAgent();
+const geminiClient = new GeminiAI(process.env.GEMINI_API_KEY);
+const agentManager = new AgentManager(geminiClient);
+
+const budgetAgent = new BudgetAgent(geminiClient);
+const savingsAgent = new SavingsAgent(geminiClient);
+const investmentAgent = new InvestmentAgent(geminiClient);
+const advisorAgent = new FinancialAdvisorAgent(geminiClient);
+const receiptAgent = new ReceiptTrackerAgent(geminiClient);
+
+// Main unified endpoint - the brain of the system
+app.post("/api/ai/process", async (req, res) => {
+  const query = req.body?.query;
+  const context = req.body?.context;
+  const transactions = Array.isArray(req.body?.transactions) ? req.body.transactions : [];
+  const receiptText = req.body?.receiptText;
+  const preferredAgent = req.body?.preferredAgent || 'auto';
+  const apiKey = typeof req.headers["x-api-key"] === "string" ? req.headers["x-api-key"] : undefined;
+
+  if (!query || typeof query !== "string") {
+    return res.status(400).json({ error: "query is required" });
+  }
+
+  try {
+    const result = await agentManager.process({
+      query,
+      context,
+      transactions,
+      apiKey,
+      preferredAgent,
+      receiptText,
+    });
+    return res.json(result);
+  } catch (error: any) {
+    console.error("Agent manager error:", error);
+    return res.status(500).json({ error: error?.message ?? "Request failed" });
+  }
+});
+
+// System status endpoint
+app.get("/api/ai/manager/status", (req, res) => {
+  const status = agentManager.getStatus();
+  return res.json(status);
+});
 
 app.post("/api/ai/advice", async (req, res) => {
   const question = req.body?.question;
@@ -55,29 +95,31 @@ app.post("/api/ai/financial-advice", async (req, res) => {
   }
 });
 
-app.post("/api/ai/budget", (req, res) => {
+app.post("/api/ai/budget", async (req, res) => {
   const context = req.body?.context ?? {};
   const transactions = Array.isArray(req.body?.transactions) ? req.body.transactions : [];
   const mode = req.body?.mode || 'analyze';
+  const apiKey = typeof req.headers["x-api-key"] === "string" ? req.headers["x-api-key"] : undefined;
 
   let result;
   if (mode === 'suggest') {
-    result = budgetAgent.suggestLimits(context);
+    result = await budgetAgent.suggestLimits(context, apiKey);
   } else if (mode === 'alert') {
-    result = budgetAgent.alertOverspending(context, transactions);
+    result = await budgetAgent.alertOverspending(context, transactions, apiKey);
   } else {
-    result = budgetAgent.analyzeSpending(context, transactions);
+    result = await budgetAgent.analyzeSpending(context, transactions, apiKey);
   }
 
   return res.json(result);
 });
 
-app.post("/api/ai/savings", (req, res) => {
+app.post("/api/ai/savings", async (req, res) => {
   const context = req.body?.context ?? {};
   const transactions = Array.isArray(req.body?.transactions) ? req.body.transactions : [];
   const autoSave = Boolean(req.body?.autoSave);
+  const apiKey = typeof req.headers["x-api-key"] === "string" ? req.headers["x-api-key"] : undefined;
 
-  const result = savingsAgent.suggestOrAutoSave(context, transactions, autoSave);
+  const result = await savingsAgent.suggestOrAutoSave(context, transactions, autoSave, apiKey);
   return res.json(result);
 });
 
@@ -94,22 +136,24 @@ app.post("/api/ai/savings/deposit", (req, res) => {
   return res.json(result);
 });
 
-app.post("/api/ai/investment", (req, res) => {
+app.post("/api/ai/investment", async (req, res) => {
   const context = req.body?.context ?? {};
   const transactions = Array.isArray(req.body?.transactions) ? req.body.transactions : [];
   const question = typeof req.body?.question === 'string' ? req.body.question : undefined;
+  const apiKey = typeof req.headers["x-api-key"] === "string" ? req.headers["x-api-key"] : undefined;
 
-  const result = investmentAgent.getInvestmentAdvice(context, transactions, question);
+  const result = await investmentAgent.getInvestmentAdvice(context, transactions, question, apiKey);
   return res.json(result);
 });
 
-app.post("/api/ai/receipts", (req, res) => {
+app.post("/api/ai/receipts", async (req, res) => {
   const receiptText = req.body?.receiptText;
+  const apiKey = typeof req.headers["x-api-key"] === "string" ? req.headers["x-api-key"] : undefined;
   if (!receiptText || typeof receiptText !== 'string') {
     return res.status(400).json({ error: 'receiptText is required' });
   }
 
-  const receipt = receiptAgent.addReceipt(receiptText);
+  const receipt = await receiptAgent.addReceipt(receiptText, apiKey);
   return res.json({ receipt, count: receiptAgent.getReceipts().length });
 });
 

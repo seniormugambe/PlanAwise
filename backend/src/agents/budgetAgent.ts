@@ -1,7 +1,19 @@
+import { GeminiAI } from './geminiAgent.js';
 import type { AgentResponse, FinancialContext, Transaction } from '../types.js';
 
 export class BudgetAgent {
-  analyzeSpending(context: FinancialContext, transactions: Transaction[] = []): AgentResponse {
+  private gemini?: GeminiAI;
+
+  constructor(gemini?: GeminiAI) {
+    this.gemini = gemini;
+  }
+
+  async analyzeSpending(context: FinancialContext, transactions: Transaction[] = [], apiKey?: string): Promise<AgentResponse> {
+    if (this.gemini && await this.gemini.isConnected(apiKey)) {
+      const prompt = `You are a financial budget analyst. Review the user's spending data and provide a concise summary of current spending, suggested monthly limits, and whether there is overspending.\n\nUser context: ${JSON.stringify(context)}\nTransactions: ${JSON.stringify(transactions)}`;
+      return this.gemini.ask(prompt, apiKey);
+    }
+
     const monthlyIncome = context.monthlyIncome || 0;
     const monthlyExpenses = context.monthlyExpenses || 0;
     const expenseTransactions = transactions.filter(tx => tx.type === 'expense');
@@ -45,7 +57,12 @@ export class BudgetAgent {
     };
   }
 
-  suggestLimits(context: FinancialContext): AgentResponse {
+  async suggestLimits(context: FinancialContext, apiKey?: string): Promise<AgentResponse> {
+    if (this.gemini && await this.gemini.isConnected(apiKey)) {
+      const prompt = `You are a financial advisor. Based on the user's income and expenses, suggest a safe monthly spending limit and explain why.\n\nUser context: ${JSON.stringify(context)}`;
+      return this.gemini.ask(prompt, apiKey);
+    }
+
     const monthlyIncome = context.monthlyIncome || 0;
     const monthlyExpenses = context.monthlyExpenses || 0;
     const baseline = monthlyIncome ? monthlyIncome * 0.5 : monthlyExpenses;
@@ -64,7 +81,12 @@ export class BudgetAgent {
     };
   }
 
-  alertOverspending(context: FinancialContext, transactions: Transaction[] = []): AgentResponse {
+  async alertOverspending(context: FinancialContext, transactions: Transaction[] = [], apiKey?: string): Promise<AgentResponse> {
+    if (this.gemini && await this.gemini.isConnected(apiKey)) {
+      const prompt = `You are a spending alert system. Determine if the user is overspending based on their expenses and send a brief alert if necessary.\n\nUser context: ${JSON.stringify(context)}\nTransactions: ${JSON.stringify(transactions)}`;
+      return this.gemini.ask(prompt, apiKey);
+    }
+
     const monthlyExpenses = context.monthlyExpenses || 0;
     const totalSpent = transactions.filter(tx => tx.type === 'expense').reduce((sum, tx) => sum + tx.amount, 0);
     const alertThreshold = monthlyExpenses * 1.05;

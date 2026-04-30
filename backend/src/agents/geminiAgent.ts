@@ -17,7 +17,7 @@ export class GeminiAI {
     this.defaultApiKey = defaultApiKey;
   }
 
-  async getAdvice(question: string, apiKey?: string): Promise<AdviceResponse> {
+  async ask(prompt: string, apiKey?: string): Promise<AdviceResponse> {
     const key = apiKey || this.defaultApiKey;
     if (!key) {
       throw new Error("Missing Gemini API key");
@@ -29,7 +29,7 @@ export class GeminiAI {
 
     try {
       const systemPrompt = this.createSystemPrompt();
-      const fullPrompt = `${systemPrompt}\n\nUser Question: ${question}\n\nPlease provide helpful, specific financial advice in plain text.`;
+      const fullPrompt = `${systemPrompt}\n\n${prompt}`;
       const result = await this.currentModel.generateContent(fullPrompt);
       const response = await result.response;
       const content = response.text().trim();
@@ -41,8 +41,12 @@ export class GeminiAI {
       };
     } catch (error) {
       console.error("Gemini backend error:", error);
-      return this.getFallbackResponse(question);
+      throw error;
     }
+  }
+
+  async getAdvice(question: string, apiKey?: string): Promise<AdviceResponse> {
+    return this.ask(`User Question: ${question}\n\nPlease provide helpful, specific financial advice in plain text.`, apiKey);
   }
 
   async isConnected(apiKey?: string): Promise<boolean> {
@@ -78,7 +82,7 @@ export class GeminiAI {
   }
 
   private createSystemPrompt(): string {
-    return `You are Finley, a friendly and optimistic AI financial advisor. Help the user answer their personal finance questions with specific examples, actionable suggestions, and supportive tone. Avoid long-winded explanations and keep advice concise. Use categories: budgeting, saving, investing, debt, or general.`;
+    return `You are Finley, a helpful financial AI assistant. You provide concise, practical, and category-aware answers for budgeting, saving, investing, debt, or general finance questions.`;
   }
 
   private categorizeResponse(content: string): Category {
@@ -96,39 +100,5 @@ export class GeminiAI {
       return "debt";
     }
     return "general";
-  }
-
-  private getFallbackResponse(question: string): AdviceResponse {
-    const lowerQuestion = question.toLowerCase();
-
-    if (lowerQuestion.includes("emergency") || lowerQuestion.includes("fund")) {
-      return {
-        content: "Your emergency fund is a key financial safety net. Aim for 3-6 months of expenses and keep building it gradually with automatic transfers.",
-        category: "saving",
-        confidence: 0.75,
-      };
-    }
-
-    if (lowerQuestion.includes("invest") || lowerQuestion.includes("investment") || lowerQuestion.includes("retirement")) {
-      return {
-        content: "Start with low-cost, diversified funds and prioritize any employer match first. Keep investing consistently and let compound growth work for you.",
-        category: "investing",
-        confidence: 0.75,
-      };
-    }
-
-    if (lowerQuestion.includes("debt") || lowerQuestion.includes("loan") || lowerQuestion.includes("credit card")) {
-      return {
-        content: "Focus extra payments on your highest-interest debt while continuing to pay minimums on the rest. This helps you reduce overall interest faster.",
-        category: "debt",
-        confidence: 0.75,
-      };
-    }
-
-    return {
-      content: "You are making smart financial decisions by asking questions. Keep tracking your budget, saving regularly, and planning for long-term goals.",
-      category: "general",
-      confidence: 0.70,
-    };
   }
 }

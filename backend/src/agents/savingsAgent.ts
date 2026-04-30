@@ -1,7 +1,19 @@
+import { GeminiAI } from './geminiAgent.js';
 import type { AgentResponse, FinancialContext, Transaction, SavingsRecommendation } from '../types.js';
 
 export class SavingsAgent {
-  detectExtraMoney(context: FinancialContext, transactions: Transaction[] = []): AgentResponse {
+  private gemini?: GeminiAI;
+
+  constructor(gemini?: GeminiAI) {
+    this.gemini = gemini;
+  }
+
+  async detectExtraMoney(context: FinancialContext, transactions: Transaction[] = [], apiKey?: string): Promise<AgentResponse> {
+    if (this.gemini && await this.gemini.isConnected(apiKey)) {
+      const prompt = `You are a savings coach. Analyze the user's income and expense transactions to determine how much extra money is available for savings, and explain whether they can safely save more this month.\n\nUser context: ${JSON.stringify(context)}\nTransactions: ${JSON.stringify(transactions)}`;
+      return this.gemini.ask(prompt, apiKey);
+    }
+
     const monthlyIncome = context.monthlyIncome || 0;
     const totalExpenses = transactions.filter(tx => tx.type === 'expense').reduce((sum, tx) => sum + tx.amount, 0);
     const totalIncome = transactions.filter(tx => tx.type === 'income').reduce((sum, tx) => sum + tx.amount, 0) || monthlyIncome;
@@ -25,7 +37,12 @@ export class SavingsAgent {
     };
   }
 
-  suggestOrAutoSave(context: FinancialContext, transactions: Transaction[] = [], enableAutoSave = false): AgentResponse {
+  async suggestOrAutoSave(context: FinancialContext, transactions: Transaction[] = [], enableAutoSave = false, apiKey?: string): Promise<AgentResponse> {
+    if (this.gemini && await this.gemini.isConnected(apiKey)) {
+      const prompt = `You are a savings advisor. Based on the user's finances, suggest an amount to save this period and optionally explain how to automate it. Return a recommendation in plain text.\n\nUser context: ${JSON.stringify(context)}\nTransactions: ${JSON.stringify(transactions)}\nAuto save enabled: ${enableAutoSave}`;
+      return this.gemini.ask(prompt, apiKey);
+    }
+
     const income = context.monthlyIncome || 0;
     const expenses = transactions.filter(tx => tx.type === 'expense').reduce((sum, tx) => sum + tx.amount, 0);
     const buffer = Math.max(300, (income - expenses) * 0.25);
@@ -56,7 +73,7 @@ export class SavingsAgent {
     };
   }
 
-  prepareSmartContractDeposit(amount: number, contractAddress = '0x0000000000000000000000000000000000000000', chainId = 137): AgentResponse {
+  async prepareSmartContractDeposit(amount: number, contractAddress = '0x0000000000000000000000000000000000000000', chainId = 137): Promise<AgentResponse> {
     const weiValue = `0x${BigInt(Math.round(amount * 1e18)).toString(16)}`;
     return {
       content: `Prepared a smart contract deposit payload for $${amount.toFixed(2)} to contract ${contractAddress} on chain ${chainId}. Use this payload with your wallet to execute the deposit.`,
