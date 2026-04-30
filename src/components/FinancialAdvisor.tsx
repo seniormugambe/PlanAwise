@@ -76,14 +76,14 @@ export const FinancialAdvisor = () => {
     const checkConnection = async () => {
       const apiKey = localStorage.getItem('gemini_api_key');
       try {
-        const response = await fetch('/api/ai/status', {
+        const response = await fetch('/api/ai/manager/status', {
           headers: {
             ...(apiKey ? { 'x-api-key': apiKey } : {}),
           },
         });
         if (response.ok) {
           const data = await response.json();
-          setIsGeminiConnected(Boolean(data.connected));
+          setIsGeminiConnected(Boolean(data.gemini === 'initialized'));
           return;
         }
       } catch (error) {

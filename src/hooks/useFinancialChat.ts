@@ -36,13 +36,16 @@ export const useFinancialChat = () => {
 
     try {
       const apiKey = localStorage.getItem('gemini_api_key');
-      const response = await fetch('/api/ai/advice', {
+      const response = await fetch('/api/ai/process', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
           ...(apiKey ? { 'x-api-key': apiKey } : {}),
         },
-        body: JSON.stringify({ question: content }),
+        body: JSON.stringify({
+          query: content,
+          preferredAgent: 'auto',
+        }),
       });
 
       if (!response.ok) {
@@ -52,10 +55,10 @@ export const useFinancialChat = () => {
       const data = await response.json();
       const aiMessage: ChatMessage = {
         id: `ai-${Date.now()}`,
-        content: data.content || 'Sorry, I could not get a response from the AI backend.',
+        content: data.answer || 'Sorry, I could not get a response from the AI backend.',
         isUser: false,
         timestamp: new Date(),
-        category: data.category,
+        category: 'general',
       };
 
       setMessages(prev => [...prev, aiMessage]);
