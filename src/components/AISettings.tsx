@@ -1,5 +1,4 @@
 import { useState, useEffect } from "react";
-import { geminiAdvisor } from "@/services/geminiAiService";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -29,8 +28,6 @@ export const AISettings = () => {
     setIsLoading(true);
     try {
       localStorage.setItem('gemini_api_key', apiKey.trim());
-      await geminiAdvisor.reinitialize();
-      await new Promise(resolve => setTimeout(resolve, 1000));
       setIsConnected(true);
     } catch (error) {
       console.error('Failed to save API key:', error);
@@ -39,11 +36,10 @@ export const AISettings = () => {
     }
   };
 
-  const handleRemoveKey = async () => {
+  const handleRemoveKey = () => {
     localStorage.removeItem('gemini_api_key');
     setApiKey("");
     setIsConnected(false);
-    await geminiAdvisor.reinitialize();
   };
 
   const maskedKey = apiKey ? `${apiKey.slice(0, 8)}...${apiKey.slice(-4)}` : "";

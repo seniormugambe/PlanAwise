@@ -35,26 +35,33 @@ export const useFinancialChat = () => {
     setIsLoading(true);
 
     try {
-      // Dynamic import to avoid bundling issues
-      const { geminiAdvisor } = await import("@/services/geminiAiService");
-      
-      // Show realistic thinking time for AI
-      await new Promise(resolve => setTimeout(resolve, 800 + Math.random() * 1200));
-      
-      const response = await geminiAdvisor.getAdvice(content);
-      
+      const apiKey = localStorage.getItem('gemini_api_key');
+      const response = await fetch('/api/ai/advice', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(apiKey ? { 'x-api-key': apiKey } : {}),
+        },
+        body: JSON.stringify({ question: content }),
+      });
+
+      if (!response.ok) {
+        throw new Error('AI backend request failed');
+      }
+
+      const data = await response.json();
       const aiMessage: ChatMessage = {
         id: `ai-${Date.now()}`,
-        content: response.content,
+        content: data.content || 'Sorry, I could not get a response from the AI backend.',
         isUser: false,
         timestamp: new Date(),
-        category: response.category
+        category: data.category,
       };
-      
+
       setMessages(prev => [...prev, aiMessage]);
     } catch (error) {
       console.error("Chat error:", error);
-      
+
       const errorMessage: ChatMessage = {
         id: `error-${Date.now()}`,
         content: "Oops! 😅 I'm having a tiny technical hiccup right now. Give me just a moment to get back on track! In the meantime, feel free to ask me about budgeting, saving, investing, or any other money questions - I love talking about finances! 💰✨",
@@ -62,7 +69,7 @@ export const useFinancialChat = () => {
         timestamp: new Date(),
         category: 'general'
       };
-      
+
       setMessages(prev => [...prev, errorMessage]);
     } finally {
       setIsLoading(false);

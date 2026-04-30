@@ -18,7 +18,6 @@ import {
   Zap,
 } from "lucide-react";
 import { useFinancialChat } from "@/hooks/useFinancialChat";
-import { geminiAdvisor } from "@/services/geminiAiService";
 import { useGamification } from "@/hooks/useGamification";
 
 const suggestedQuestions = [
@@ -70,13 +69,36 @@ const getGreetingByTime = () => {
 
 export const FinancialAdvisor = () => {
   const { messages, isLoading, sendMessage, clearChat } = useFinancialChat();
-  const [isGeminiConnected, setIsGeminiConnected] = useState(geminiAdvisor.isConnected());
+  const [isGeminiConnected, setIsGeminiConnected] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
   useEffect(() => {
-    setIsGeminiConnected(geminiAdvisor.isConnected());
-    // Listen for API key changes
-    const handleStorage = () => setIsGeminiConnected(geminiAdvisor.isConnected());
+    const checkConnection = async () => {
+      const apiKey = localStorage.getItem('gemini_api_key');
+      try {
+        const response = await fetch('/api/ai/status', {
+          headers: {
+            ...(apiKey ? { 'x-api-key': apiKey } : {}),
+          },
+        });
+        if (response.ok) {
+          const data = await response.json();
+          setIsGeminiConnected(Boolean(data.connected));
+          return;
+        }
+      } catch (error) {
+        console.error('AI backend status error:', error);
+      }
+      setIsGeminiConnected(Boolean(apiKey));
+    };
+
+    checkConnection();
+
+    const handleStorage = () => {
+      const apiKey = localStorage.getItem('gemini_api_key');
+      setIsGeminiConnected(Boolean(apiKey));
+    };
+
     window.addEventListener('storage', handleStorage);
     return () => window.removeEventListener('storage', handleStorage);
   }, []);
