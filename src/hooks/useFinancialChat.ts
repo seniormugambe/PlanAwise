@@ -1,4 +1,6 @@
 import { useState, useCallback } from "react";
+import { useWallets } from "@/hooks/useWallets";
+import { useGoals } from "@/hooks/useGoals";
 
 export interface ChatMessage {
   id: string;
@@ -9,6 +11,8 @@ export interface ChatMessage {
 }
 
 export const useFinancialChat = () => {
+  const { wallets, transactions } = useWallets();
+  const { goals } = useGoals();
   const [messages, setMessages] = useState<ChatMessage[]>([
     {
       id: "welcome",
@@ -35,7 +39,7 @@ export const useFinancialChat = () => {
     setIsLoading(true);
 
     try {
-      const apiKey = localStorage.getItem('gemini_api_key');
+      const apiKey = localStorage.getItem('gemini_api_key') || import.meta.env.VITE_GEMINI_API_KEY;
       const response = await fetch('/api/ai/process', {
         method: 'POST',
         headers: {
@@ -45,6 +49,18 @@ export const useFinancialChat = () => {
         body: JSON.stringify({
           query: content,
           preferredAgent: 'auto',
+          context: {
+            wallets: wallets.map(({ id, name, type, balance, network }) => ({ id, name, type, balance, network })),
+            goals: goals.map(goal => ({
+              id: goal.id,
+              title: goal.title,
+              currentAmount: goal.currentAmount,
+              targetAmount: goal.targetAmount,
+              monthlyContribution: goal.monthlyContribution,
+              category: goal.category,
+            })),
+          },
+          transactions,
         }),
       });
 

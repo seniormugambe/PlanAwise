@@ -3,15 +3,25 @@ import { mainnet, polygon, bsc, arbitrum, optimism, base, celo, avalanche, fanto
 import { injected, metaMask, walletConnect } from 'wagmi/connectors'
 
 // WalletConnect project ID - get this from https://cloud.walletconnect.com
-const projectId = import.meta.env.VITE_WALLETCONNECT_PROJECT_ID || 'demo-project-id'
+const walletConnectProjectId = import.meta.env.VITE_WALLETCONNECT_PROJECT_ID
+
+const connectors = [
+  injected(),
+  metaMask(),
+]
+
+if (walletConnectProjectId) {
+  connectors.push(walletConnect({ projectId: walletConnectProjectId }))
+} else {
+  console.warn(
+    'VITE_WALLETCONNECT_PROJECT_ID is not set. WalletConnect will be disabled. ' +
+    'Set it in your .env file or render environment variables to enable WalletConnect.'
+  )
+}
 
 export const config = createConfig({
   chains: [mainnet, polygon, bsc, arbitrum, optimism, base, celo, avalanche, fantom],
-  connectors: [
-    injected(),
-    metaMask(),
-    walletConnect({ projectId }),
-  ],
+  connectors,
   transports: {
     [mainnet.id]: http(
       import.meta.env.VITE_ALCHEMY_API_KEY 

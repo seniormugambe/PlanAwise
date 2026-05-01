@@ -1,6 +1,5 @@
 import { Button } from "@/components/ui/button";
 import { ThemeToggle } from "@/components/ThemeToggle";
-import { AISettings } from "@/components/AISettings";
 import { XPIndicator } from "@/components/XPIndicator";
 import { AddGoalDialog } from "@/components/AddGoalDialog";
 import { Web3Status } from "@/components/Web3Status";
@@ -31,7 +30,6 @@ export const DashboardHeader = () => {
         <Web3Status variant="compact" />
         
         <ThemeToggle />
-        <AISettings />
         <Button variant="outline" size="sm" onClick={() => navigate('/wallets')}>
           <Wallet className="w-4 h-4 mr-2" />
           Wallets

@@ -76,9 +76,10 @@ export const FinancialAdvisor = () => {
     const checkConnection = async () => {
       const apiKey = localStorage.getItem('gemini_api_key');
       try {
-        const response = await fetch('/api/ai/manager/status', {
+        const environmentApiKey = import.meta.env.VITE_GEMINI_API_KEY;
+      const response = await fetch('/api/ai/manager/status', {
           headers: {
-            ...(apiKey ? { 'x-api-key': apiKey } : {}),
+            ...((apiKey || environmentApiKey) ? { 'x-api-key': apiKey || environmentApiKey } : {}),
           },
         });
         if (response.ok) {
@@ -135,7 +136,7 @@ export const FinancialAdvisor = () => {
       await sendMessage(content);
       setErrorMsg(null);
     } catch (err: any) {
-      setErrorMsg("Gemini AI is not connected or there was an error. Please check your API key in AI Settings.");
+      setErrorMsg("Gemini AI is not connected or there was an error. Please verify your local API key configuration.");
     }
     setInputValue("");
     setIsTyping(false);
