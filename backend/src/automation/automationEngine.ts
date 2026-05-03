@@ -43,7 +43,7 @@ export class AutomationEngine {
       agents: {
         budget: { enabled: true, threshold: 0.8 }, // Alert if spending is 80% of budget
         savings: { enabled: true, threshold: 100 }, // Alert if savings opportunity > $100
-        investment: { enabled: false, threshold: 1000 }, // Alert if investment opportunity > $1000
+        investment: { enabled: true, threshold: 1000 }, // Alert if investment opportunity > $1000
       },
       ...config,
     };

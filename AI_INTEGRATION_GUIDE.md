@@ -20,22 +20,22 @@ The PlanAwise Frontend has been fully integrated with AI Agents for real financi
   - Handles response parsing and error handling
 
 ### Components Using AI Agents
-1. **BudgetAnalysis** (`src/components/BudgetAnalysis.tsx`)
+1. **BudgetAnalysis** (`frontend/src/components/BudgetAnalysis.tsx`)
    - Uses: Budget AI Agent
    - Features: Spending analysis, budget recommendations, expense alerts
    - Modes: Analyze, Suggest, Alert
 
-2. **SavingsRecommendations** (`src/components/SavingsRecommendations.tsx`)
+2. **SavingsRecommendations** (`frontend/src/components/SavingsRecommendations.tsx`)
    - Uses: Savings AI Agent
    - Features: Savings optimization, auto-save suggestions, goal tracking
    - Provides actionable monthly savings recommendations
 
-3. **InvestmentAdvice** (`src/components/InvestmentAdvice.tsx`)
+3. **InvestmentAdvice** (`frontend/src/components/InvestmentAdvice.tsx`)
    - Uses: Investment AI Agent
    - Features: Portfolio analysis, investment recommendations, risk assessment
    - Supports custom investment questions
 
-4. **FinancialAdvisor** (`src/components/FinancialAdvisor.tsx`)
+4. **FinancialAdvisor** (`frontend/src/components/FinancialAdvisor.tsx`)
    - Uses: Multi-agent orchestration system
    - Features: Chat-based financial guidance
    - Automatically selects the best agent for each question

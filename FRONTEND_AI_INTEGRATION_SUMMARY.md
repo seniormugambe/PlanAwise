@@ -3,7 +3,7 @@
 ## What Has Been Done
 
 ### 1. Created Unified AI Agent Service Layer ✅
-- **File**: `src/services/aiAgentService.ts`
+- **File**: `frontend/src/services/aiAgentService.ts`
 - **Purpose**: Centralized service for all AI agent interactions
 - **Features**:
   - Unified API interface for all agent types
@@ -13,7 +13,7 @@
   - Support for multiple specialized agent methods
 
 ### 2. Created useAIAgent React Hook ✅
-- **File**: `src/hooks/useAIAgent.ts`
+- **File**: `frontend/src/hooks/useAIAgent.ts`
 - **Purpose**: React hook to easily access AI agent functionality in components
 - **Features**:
   - Loading and error state management
@@ -30,7 +30,7 @@
 ### 3. Created AI-Powered Components
 
 #### A. Budget Analysis Component ✅
-- **File**: `src/components/BudgetAnalysis.tsx`
+- **File**: `frontend/src/components/BudgetAnalysis.tsx`
 - **Features**:
   - Real-time spending analysis
   - Three analysis modes: analyze, suggest, alert
@@ -40,7 +40,7 @@
   - Integration with real wallet and transaction data
 
 #### B. Savings Recommendations Component ✅
-- **File**: `src/components/SavingsRecommendations.tsx`
+- **File**: `frontend/src/components/SavingsRecommendations.tsx`
 - **Features**:
   - Intelligent savings suggestions based on financial data
   - Monthly savings rate calculation
@@ -50,7 +50,7 @@
   - Actionable recommendations
 
 #### C. Investment Advice Component ✅
-- **File**: `src/components/InvestmentAdvice.tsx`
+- **File**: `frontend/src/components/InvestmentAdvice.tsx`
 - **Features**:
   - Personalized investment strategies
   - Risk assessment
@@ -144,7 +144,7 @@ UI Components Display Results
 ## Key Files Modified/Created
 
 ```
-src/
+frontend/src/
 ├── services/
 │   └── aiAgentService.ts (NEW) - Unified AI service layer
 ├── hooks/

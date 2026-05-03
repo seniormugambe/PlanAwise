@@ -6,32 +6,32 @@
 
 ## Architecture & Key Patterns
 - **AI Advisors:**
-  - Core logic in `src/services/aiFinancialAdvisor.ts`, `lovableAiAdvisor.ts`, and `geminiAiService.ts`.
+  - Core logic in `frontend/src/services/aiFinancialAdvisor.ts`, `lovableAiAdvisor.ts`, and `geminiAiService.ts`.
   - Each advisor class exposes `getAdvice(question: string): Promise<AdviceResponse>` and manages a `FinancialContext` object.
   - Use `getInstance()` for singleton access.
   - Advice responses are categorized (`budgeting`, `saving`, `investing`, `debt`, `general`) and often include confidence scores.
 - **Gamification:**
-  - Achievements, streaks, and user levels defined in `src/data/gamification.ts` and `src/types/gamification.ts`.
+  - Achievements, streaks, and user levels defined in `frontend/src/data/gamification.ts` and `frontend/src/types/gamification.ts`.
   - Gamification logic is surfaced in UI via components like `GamificationPanel`, `AchievementNotification`, and hooks (`useGamification`).
 - **Wallets & Payments:**
-  - Wallet management in `src/components/WalletManager.tsx`, analytics in `WalletAnalytics.tsx`.
-  - Payment integration via `BoundlessPayService` (`src/services/boundlessPayService.ts`), with config and status types in `src/types/boundlessPay.ts`.
+  - Wallet management in `frontend/src/components/WalletManager.tsx`, analytics in `WalletAnalytics.tsx`.
+  - Payment integration via `BoundlessPayService` (`frontend/src/services/boundlessPayService.ts`), with config and status types in `frontend/src/types/boundlessPay.ts`.
   - Use `initialize`, `saveConfig`, and `processPayment` methods for payment flows. API keys are stored in browser localStorage.
 - **UI Conventions:**
-  - All UI primitives (Button, Card, Input, etc.) are in `src/components/ui/` and follow shadcn-ui conventions.
+  - All UI primitives (Button, Card, Input, etc.) are in `frontend/src/components/ui/` and follow shadcn-ui conventions.
   - Use Tailwind utility classes for styling. Prefer composable, stateless components.
   - Bot personalities and suggested questions are defined in `FinancialAdvisor.tsx`.
 
 ## Developer Workflows
 - **Local development:**
-  - Start with `npm run dev` (Vite server, port 8080).
-  - Hot reload is enabled; aliases use `@` for `src/`.
+  - Start with `cd frontend && npm run dev` (Vite server, port 8080).
+  - Hot reload is enabled; aliases use `@` for `frontend/src/`.
 - **API Keys:**
   - Gemini API key: set via browser localStorage or `.env` (`VITE_GEMINI_API_KEY`).
   - Boundless Pay API key: set via UI, validated for format (`bp_...`, length >= 32).
 - **Testing & Debugging:**
   - No formal test suite detected; rely on manual UI/logic validation.
-  - Use mock data in `src/data/` for gamification and wallet features.
+  - Use mock data in `frontend/src/data/` for gamification and wallet features.
 - **Deployment:**
   - Deploy via Lovable platform (see README for details).
 
@@ -65,9 +65,9 @@
 
 ## References
 - [README.md](../../README.md) for deployment and platform info
-- `src/services/` for AI and payment logic
-- `src/data/` and `src/types/` for gamification and wallet schemas
-- `src/components/ui/` for UI conventions
+- `frontend/src/services/` for AI and payment logic
+- `frontend/src/data/` and `frontend/src/types/` for gamification and wallet schemas
+- `frontend/src/components/ui/` for UI conventions
 
 ---
 **Feedback:** If any section is unclear or missing, please specify so it can be improved for future AI agents.

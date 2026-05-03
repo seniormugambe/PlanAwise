@@ -54,8 +54,8 @@ Before deploying, you'll need these API keys:
 2. **Configure Build Settings**:
    - **Name**: `web3-finance-dashboard`
    - **Environment**: `Node`
-   - **Build Command**: `npm ci && npm run build`
-   - **Start Command**: `npm run preview`
+   - **Build Command**: `cd frontend && npm ci && npm run build`
+   - **Start Command**: `cd frontend && npm run preview`
    - **Plan**: Free (or paid for better performance)
 
 3. **Set Environment Variables**: Add all required variables in the Environment tab
@@ -100,13 +100,13 @@ Before deploying, you'll need these API keys:
 
 ### Build Failures
 - Check the build logs in Render dashboard
-- Ensure all dependencies are in `package.json`
+- Ensure all frontend dependencies are in `frontend/package.json`
 - Verify environment variables are set correctly
 
 ### Runtime Errors
 - Check the service logs
 - Ensure all required environment variables are present
-- Test locally with `npm run build && npm run preview`
+- Test locally with `cd frontend && npm run build && npm run preview`
 
 ### Web3 Connection Issues
 - Verify WalletConnect Project ID is correct

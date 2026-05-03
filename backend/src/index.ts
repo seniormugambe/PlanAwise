@@ -22,6 +22,7 @@ app.use(express.json());
 
 const geminiClient = new GeminiAI({
   geminiApiKey: process.env.GEMINI_API_KEY,
+  geminiModel: process.env.GEMINI_MODEL,
   provider: (process.env.AI_PROVIDER as "auto" | "gemini" | "vertex" | undefined) || "auto",
   vertexApiKey: process.env.VERTEX_API_KEY || process.env.GOOGLE_API_KEY,
   vertexApiEndpoint: process.env.VERTEX_API_ENDPOINT,
@@ -98,9 +99,24 @@ app.post("/api/ai/process", async (req, res) => {
 });
 
 // System status endpoint
-app.get("/api/ai/manager/status", (req, res) => {
+app.get("/api/ai/manager/status", async (req, res) => {
+  const apiKey = typeof req.headers["x-api-key"] === "string" ? req.headers["x-api-key"] : undefined;
   const status = agentManager.getStatus();
-  return res.json(status);
+  const connected = await agentManager.isConnected(apiKey);
+  const agents = status.agents && typeof status.agents === "object" && !Array.isArray(status.agents)
+    ? Object.fromEntries(
+        Object.keys(status.agents as Record<string, unknown>).map(agent => [
+          agent,
+          connected ? "active" : "offline",
+        ])
+      )
+    : status.agents;
+
+  return res.json({
+    ...status,
+    agents,
+    connected,
+  });
 });
 
 app.post("/api/ai/advice", async (req, res) => {
@@ -145,16 +161,21 @@ app.post("/api/ai/budget", async (req, res) => {
   const mode = req.body?.mode || 'analyze';
   const apiKey = typeof req.headers["x-api-key"] === "string" ? req.headers["x-api-key"] : undefined;
 
-  let result;
-  if (mode === 'suggest') {
-    result = await budgetAgent.suggestLimits(context, apiKey);
-  } else if (mode === 'alert') {
-    result = await budgetAgent.alertOverspending(context, transactions, apiKey);
-  } else {
-    result = await budgetAgent.analyzeSpending(context, transactions, apiKey);
-  }
+  try {
+    let result;
+    if (mode === 'suggest') {
+      result = await budgetAgent.suggestLimits(context, apiKey);
+    } else if (mode === 'alert') {
+      result = await budgetAgent.alertOverspending(context, transactions, apiKey);
+    } else {
+      result = await budgetAgent.analyzeSpending(context, transactions, apiKey);
+    }
 
-  return res.json(result);
+    return res.json(result);
+  } catch (error: any) {
+    console.error("Budget AI error:", error);
+    return res.status(500).json({ error: error?.message ?? "Budget AI request failed" });
+  }
 });
 
 app.post("/api/ai/savings", async (req, res) => {
@@ -163,8 +184,13 @@ app.post("/api/ai/savings", async (req, res) => {
   const autoSave = Boolean(req.body?.autoSave);
   const apiKey = typeof req.headers["x-api-key"] === "string" ? req.headers["x-api-key"] : undefined;
 
-  const result = await savingsAgent.suggestOrAutoSave(context, transactions, autoSave, apiKey);
-  return res.json(result);
+  try {
+    const result = await savingsAgent.suggestOrAutoSave(context, transactions, autoSave, apiKey);
+    return res.json(result);
+  } catch (error: any) {
+    console.error("Savings AI error:", error);
+    return res.status(500).json({ error: error?.message ?? "Savings AI request failed" });
+  }
 });
 
 app.post("/api/ai/savings/deposit", (req, res) => {
@@ -186,8 +212,13 @@ app.post("/api/ai/investment", async (req, res) => {
   const question = typeof req.body?.question === 'string' ? req.body.question : undefined;
   const apiKey = typeof req.headers["x-api-key"] === "string" ? req.headers["x-api-key"] : undefined;
 
-  const result = await investmentAgent.getInvestmentAdvice(context, transactions, question, apiKey);
-  return res.json(result);
+  try {
+    const result = await investmentAgent.getInvestmentAdvice(context, transactions, question, apiKey);
+    return res.json(result);
+  } catch (error: any) {
+    console.error("Investment AI error:", error);
+    return res.status(500).json({ error: error?.message ?? "Investment AI request failed" });
+  }
 });
 
 app.post("/api/ai/receipts", async (req, res) => {
@@ -197,8 +228,13 @@ app.post("/api/ai/receipts", async (req, res) => {
     return res.status(400).json({ error: 'receiptText is required' });
   }
 
-  const receipt = await receiptAgent.addReceipt(receiptText, apiKey);
-  return res.json({ receipt, count: receiptAgent.getReceipts().length });
+  try {
+    const receipt = await receiptAgent.addReceipt(receiptText, apiKey);
+    return res.json({ receipt, count: receiptAgent.getReceipts().length });
+  } catch (error: any) {
+    console.error("Receipt AI error:", error);
+    return res.status(500).json({ error: error?.message ?? "Receipt AI request failed" });
+  }
 });
 
 app.get("/api/ai/receipts", (req, res) => {
@@ -328,6 +364,19 @@ app.post("/api/automation/cleanup", (req, res) => {
 });
 
 const port = Number(process.env.PORT || 4000);
-app.listen(port, () => {
+const server = app.listen(port, () => {
   console.log(`AI backend running on http://localhost:${port}`);
+});
+
+server.on("error", (error: NodeJS.ErrnoException) => {
+  if (error.code === "EADDRINUSE") {
+    console.error(
+      `Port ${port} is already in use. The AI backend may already be running at http://localhost:${port}.`
+    );
+    console.error(`Stop the existing process or start this server with another port, for example: PORT=${port + 1} npm run dev`);
+    process.exit(1);
+  }
+
+  console.error("AI backend failed to start:", error);
+  process.exit(1);
 });

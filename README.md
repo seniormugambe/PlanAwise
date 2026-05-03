@@ -53,7 +53,8 @@ All components use real data from backend APIs:
 git clone <YOUR_GIT_URL>
 cd PlanAwise
 
-# Install dependencies
+# Install frontend dependencies
+cd frontend
 npm install
 # or
 bun install
@@ -66,7 +67,7 @@ cp .env.example .env
 npm run dev
 
 # In another terminal, start the backend
-cd backend
+cd ../backend
 npm install
 npm start
 ```
@@ -80,25 +81,27 @@ npm start
 
 ```
 PlanAwise/
-├── src/
-│   ├── components/
-│   │   ├── BudgetAnalysis.tsx         # AI budget analysis
-│   │   ├── SavingsRecommendations.tsx # AI savings advice
-│   │   ├── InvestmentAdvice.tsx       # AI investment guidance
-│   │   ├── FinancialAdvisor.tsx       # AI chat assistant
-│   │   └── [other components]
-│   ├── hooks/
-│   │   ├── useAIAgent.ts              # AI agent hook
-│   │   ├── useWallets.ts              # Real wallet data
-│   │   ├── useGoals.ts                # Real goals data
-│   │   └── useGamification.ts         # Real gamification data
-│   ├── services/
-│   │   ├── aiAgentService.ts          # Unified AI service
-│   │   └── [other services]
-│   ├── pages/
-│   │   ├── Index.tsx                  # Main dashboard
-│   │   └── Wallets.tsx                # Wallet management
-│   └── [configuration and utilities]
+├── frontend/
+│   ├── src/
+│   │   ├── components/
+│   │   │   ├── BudgetAnalysis.tsx         # AI budget analysis
+│   │   │   ├── SavingsRecommendations.tsx # AI savings advice
+│   │   │   ├── InvestmentAdvice.tsx       # AI investment guidance
+│   │   │   ├── FinancialAdvisor.tsx       # AI chat assistant
+│   │   │   └── [other components]
+│   │   ├── hooks/
+│   │   │   ├── useAIAgent.ts              # AI agent hook
+│   │   │   ├── useWallets.ts              # Real wallet data
+│   │   │   ├── useGoals.ts                # Real goals data
+│   │   │   └── useGamification.ts         # Real gamification data
+│   │   ├── services/
+│   │   │   ├── aiAgentService.ts          # Unified AI service
+│   │   │   └── [other services]
+│   │   ├── pages/
+│   │   │   ├── Index.tsx                  # Main dashboard
+│   │   │   └── Wallets.tsx                # Wallet management
+│   │   └── [configuration and utilities]
+│   └── [frontend configuration]
 ├── backend/
 │   ├── src/
 │   │   ├── agents/                    # AI agent implementations
@@ -134,6 +137,8 @@ PlanAwise/
 ### Available Scripts
 
 ```bash
+# From frontend/
+
 # Start development server
 npm run dev
 
@@ -153,6 +158,8 @@ npm run type-check
 ### Backend Commands
 
 ```bash
+# From backend/
+
 # Start backend server
 npm start
 
@@ -167,7 +174,7 @@ npm run build
 
 ### Environment Variables
 
-Create a `.env` file:
+Create a `frontend/.env` file:
 
 ```env
 VITE_GEMINI_API_KEY=your_gemini_api_key_here

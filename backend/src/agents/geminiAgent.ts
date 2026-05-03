@@ -1,26 +1,19 @@
-import { GoogleGenerativeAI } from "@google/generative-ai";
 import { VertexAI } from "@google-cloud/vertexai";
 import { globalCache } from '../cache/responseCache.js';
 
 type Category = "budgeting" | "saving" | "investing" | "debt" | "general";
 type AIProvider = "gemini" | "vertex";
+type AIProviderMode = AIProvider | "auto";
 
 interface GeminiAIOptions {
   geminiApiKey?: string;
-  provider?: AIProvider | "auto";
+  geminiModel?: string;
+  provider?: AIProviderMode;
   vertexApiKey?: string;
   vertexApiEndpoint?: string;
   vertexProject?: string;
   vertexLocation?: string;
   vertexModel?: string;
-}
-
-interface TextGenerationModel {
-  generateContent(input: unknown): Promise<{
-    response: {
-      text(): string;
-    };
-  }>;
 }
 
 interface VertexGenerationModel {
@@ -47,31 +40,34 @@ export interface AdviceResponse {
 
 export class GeminiAI {
   private defaultApiKey?: string;
-  private currentModel: TextGenerationModel | null = null;
-  private currentApiKey?: string;
   private provider: AIProvider;
+  private providerMode: AIProviderMode;
   private vertexApiKey?: string;
   private vertexApiEndpoint: string;
+  private geminiApiEndpoint = "https://generativelanguage.googleapis.com";
   private vertexProject?: string;
   private vertexLocation: string;
   private vertexModel: string;
+  private geminiModel: string;
   private currentVertexModel: VertexGenerationModel | null = null;
 
   constructor(options: GeminiAIOptions = {}) {
     this.defaultApiKey = options.geminiApiKey;
+    this.geminiModel = options.geminiModel || "gemini-flash-latest";
     this.vertexApiKey = options.vertexApiKey;
     this.vertexApiEndpoint = (options.vertexApiEndpoint || "https://aiplatform.googleapis.com").replace(/\/$/, "");
     this.vertexProject = options.vertexProject;
     this.vertexLocation = options.vertexLocation || "us-central1";
     this.vertexModel = options.vertexModel || "gemini-2.5-flash";
-    this.provider = this.resolveProvider(options.provider);
+    this.providerMode = options.provider || "auto";
+    this.provider = this.resolveProvider(this.providerMode);
   }
 
   async ask(prompt: string, apiKey?: string, includeReasoning = true): Promise<AdviceResponse> {
     if (this.provider === "gemini" && !(apiKey || this.defaultApiKey)) {
       throw new Error("Missing Gemini API key");
     }
-    if (this.provider === "vertex" && !this.vertexApiKey && !this.vertexProject) {
+    if (this.provider === "vertex" && !this.vertexApiKey && !this.vertexProject && !this.canFallbackToGemini(apiKey)) {
       throw new Error("Missing Vertex AI API key or Google Cloud project");
     }
 
@@ -137,22 +133,22 @@ export class GeminiAI {
   async isConnected(apiKey?: string): Promise<boolean> {
     try {
       if (this.provider === "vertex") {
-        if (this.vertexApiKey) {
-          return this.validateVertexApiKey();
+        const vertexConnected = this.vertexApiKey
+          ? await this.validateVertexApiKey()
+          : this.vertexProject
+            ? await this.validateVertexCredentials()
+            : false;
+
+        if (vertexConnected) {
+          return true;
         }
 
-        return this.validateVertexCredentials();
+        return this.canFallbackToGemini(apiKey)
+          ? await this.validateGeminiApiKey(apiKey)
+          : false;
       }
 
-      const key = apiKey || this.defaultApiKey;
-      if (!key) {
-        return false;
-      }
-
-      if (!this.currentModel || key !== this.currentApiKey) {
-        await this.initializeGeminiModel(key);
-      }
-      return true;
+      return await this.validateGeminiApiKey(apiKey);
     } catch {
       return false;
     }
@@ -160,8 +156,10 @@ export class GeminiAI {
 
   getStatus(): Record<string, unknown> {
     return {
+      mode: this.providerMode,
       provider: this.provider,
-      model: this.provider === "vertex" ? this.vertexModel : "gemini-2.5-flash",
+      model: this.provider === "vertex" ? this.vertexModel : this.geminiModel,
+      fallbackProvider: this.canFallbackToGemini() ? "gemini" : undefined,
       vertex: {
         project: this.vertexProject ? "configured" : "missing",
         location: this.vertexLocation,
@@ -174,40 +172,64 @@ export class GeminiAI {
 
   private async generateText(prompt: string, apiKey?: string): Promise<string> {
     if (this.provider === "vertex") {
-      if (this.vertexApiKey) {
-        return this.generateTextWithVertexApiKey(prompt);
+      try {
+        if (this.vertexApiKey) {
+          return this.generateTextWithVertexApiKey(prompt);
+        }
+
+        await this.initializeVertexModel();
+        const vertexModel = this.currentVertexModel;
+        if (!vertexModel) {
+          throw new Error("Vertex AI model was not initialized");
+        }
+
+        const result = await vertexModel.generateContent({
+          contents: [{ role: "user", parts: [{ text: prompt }] }],
+        });
+
+        return this.extractContentText(result.response);
+      } catch (error) {
+        if (this.canFallbackToGemini(apiKey)) {
+          console.warn(`Vertex AI request failed; falling back to Gemini API: ${this.getErrorMessage(error)}`);
+          return this.generateTextWithGemini(prompt, apiKey);
+        }
+
+        throw error;
       }
-
-      await this.initializeVertexModel();
-      const vertexModel = this.currentVertexModel;
-      if (!vertexModel) {
-        throw new Error("Vertex AI model was not initialized");
-      }
-
-      const result = await vertexModel.generateContent({
-        contents: [{ role: "user", parts: [{ text: prompt }] }],
-      });
-
-      return this.extractVertexText(result.response);
     }
 
+    return this.generateTextWithGemini(prompt, apiKey);
+  }
+
+  private async generateTextWithGemini(prompt: string, apiKey?: string): Promise<string> {
     const key = apiKey || this.defaultApiKey;
     if (!key) {
       throw new Error("Missing Gemini API key");
     }
 
-    if (!this.currentModel || key !== this.currentApiKey) {
-      await this.initializeGeminiModel(key);
+    const url = `${this.geminiApiEndpoint}/v1beta/models/${encodeURIComponent(this.geminiModel)}:generateContent`;
+    const response = await fetch(url, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "X-goog-api-key": key,
+      },
+      body: JSON.stringify({
+        contents: [{ role: "user", parts: [{ text: prompt }] }],
+        generationConfig: {
+          temperature: 0.7,
+          topP: 0.8,
+          topK: 40,
+          maxOutputTokens: 1024,
+        },
+      }),
+    });
+
+    if (!response.ok) {
+      throw new Error(`Gemini API request failed (${response.status} ${response.statusText}): ${await response.text()}`);
     }
 
-    const model = this.currentModel;
-    if (!model) {
-      throw new Error("Gemini model was not initialized");
-    }
-
-    const result = await model.generateContent(prompt);
-    const response = await result.response;
-    return response.text().trim();
+    return this.extractContentText(await response.json() as VertexGenerateContentResponse);
   }
 
   private async generateTextWithVertexApiKey(prompt: string): Promise<string> {
@@ -236,7 +258,7 @@ export class GeminiAI {
       throw new Error(`Vertex AI API key request failed (${response.status} ${response.statusText}): ${await response.text()}`);
     }
 
-    return this.extractVertexText(await response.json() as VertexGenerateContentResponse);
+    return this.extractContentText(await response.json() as VertexGenerateContentResponse);
   }
 
   private async validateVertexApiKey(): Promise<boolean> {
@@ -281,18 +303,34 @@ export class GeminiAI {
     }
   }
 
-  private async initializeGeminiModel(apiKey: string) {
-    this.currentApiKey = apiKey;
-    const genAI = new GoogleGenerativeAI(apiKey);
-    this.currentModel = genAI.getGenerativeModel({
-      model: "gemini-2.5-flash",
-      generationConfig: {
-        temperature: 0.7,
-        topP: 0.8,
-        topK: 40,
-        maxOutputTokens: 1024,
-      },
-    });
+  private async validateGeminiApiKey(apiKey?: string): Promise<boolean> {
+    const key = apiKey || this.defaultApiKey;
+    if (!key) {
+      return false;
+    }
+
+    try {
+      const url = `${this.geminiApiEndpoint}/v1beta/models/${encodeURIComponent(this.geminiModel)}:countTokens`;
+      const response = await fetch(url, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "X-goog-api-key": key,
+        },
+        body: JSON.stringify({
+          contents: [{ role: "user", parts: [{ text: "connection check" }] }],
+        }),
+      });
+
+      if (!response.ok) {
+        console.warn(`Gemini API key validation failed (${response.status} ${response.statusText})`);
+      }
+
+      return response.ok;
+    } catch (error) {
+      console.warn("Gemini API key validation request failed:", error);
+      return false;
+    }
   }
 
   private async initializeVertexModel() {
@@ -320,7 +358,7 @@ export class GeminiAI {
     });
   }
 
-  private extractVertexText(response: VertexGenerateContentResponse): string {
+  private extractContentText(response: VertexGenerateContentResponse): string {
     const parts = response?.candidates?.[0]?.content?.parts || [];
     const text = parts
       .map((part) => part.text || "")
@@ -328,7 +366,7 @@ export class GeminiAI {
       .trim();
 
     if (!text) {
-      throw new Error("Vertex AI returned an empty response");
+      throw new Error("AI provider returned an empty response");
     }
 
     return text;
@@ -339,12 +377,28 @@ export class GeminiAI {
       return provider;
     }
 
+    if (this.vertexApiKey) {
+      return "vertex";
+    }
+
+    if (this.defaultApiKey) {
+      return "gemini";
+    }
+
     return this.vertexProject ? "vertex" : "gemini";
   }
 
   private getCacheNamespace(apiKey?: string): string {
     const usingHeaderGeminiKey = this.provider === "gemini" && Boolean(apiKey);
     return usingHeaderGeminiKey ? "gemini-user-key" : `ai-${this.provider}`;
+  }
+
+  private canFallbackToGemini(apiKey?: string): boolean {
+    return this.providerMode === "auto" && this.provider === "vertex" && Boolean(apiKey || this.defaultApiKey);
+  }
+
+  private getErrorMessage(error: unknown): string {
+    return error instanceof Error ? error.message : "unknown error";
   }
 
   private createSystemPrompt(): string {
