@@ -19,11 +19,11 @@ const Wallets = () => {
     <div className="min-h-screen bg-background pattern-grid">
       <div className="container mx-auto p-6 space-y-8 animate-fade-in">
         {/* Header */}
-        <div className="flex items-center gap-4 animate-slide-up">
+        <div className="flex flex-col gap-3 animate-slide-up sm:flex-row sm:items-center sm:gap-4">
           <Button 
             variant="ghost" 
             onClick={() => navigate('/')}
-            className="hover:bg-accent/50 transition-all duration-300"
+            className="w-fit hover:bg-accent/50 transition-all duration-300"
           >
             <ArrowLeft className="w-4 h-4 mr-2" />
             Back to Dashboard
@@ -46,12 +46,12 @@ const Wallets = () => {
         {/* Wallet Tabs */}
         <div className="animate-slide-up" style={{ animationDelay: '0.2s' }}>
           <Tabs defaultValue="overview" className="w-full">
-            <TabsList className="grid w-full grid-cols-5 glass">
-              <TabsTrigger value="overview" className="transition-all duration-300">Overview</TabsTrigger>
-              <TabsTrigger value="manage" className="transition-all duration-300">Manage</TabsTrigger>
-              <TabsTrigger value="payments" className="transition-all duration-300">Payments</TabsTrigger>
-              <TabsTrigger value="transfer" className="transition-all duration-300">Transfer</TabsTrigger>
-              <TabsTrigger value="analytics" className="transition-all duration-300">Analytics</TabsTrigger>
+            <TabsList className="flex h-auto w-full justify-start gap-1 overflow-x-auto p-1 glass md:grid md:grid-cols-5">
+              <TabsTrigger value="overview" className="min-w-24 transition-all duration-300">Overview</TabsTrigger>
+              <TabsTrigger value="manage" className="min-w-24 transition-all duration-300">Manage</TabsTrigger>
+              <TabsTrigger value="payments" className="min-w-24 transition-all duration-300">Payments</TabsTrigger>
+              <TabsTrigger value="transfer" className="min-w-24 transition-all duration-300">Transfer</TabsTrigger>
+              <TabsTrigger value="analytics" className="min-w-24 transition-all duration-300">Analytics</TabsTrigger>
             </TabsList>
 
             <TabsContent value="overview" className="space-y-6 animate-fade-in">

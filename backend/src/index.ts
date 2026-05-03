@@ -8,7 +8,11 @@ import { FinancialAdvisorAgent } from "./agents/financialAdvisorAgent.js";
 import { ReceiptTrackerAgent } from "./agents/receiptTrackerAgent.js";
 import { GeminiAI } from "./agents/geminiAgent.js";
 import { AgentManager } from "./agents/agentManager.js";
+import { automationEngine } from "./automation/automationEngine.js";
+import { globalCache } from "./cache/responseCache.js";
 import { wallets, transactions, goals, gamificationStats } from "./data/mockData.js";
+import type { AutomationResult } from "./automation/automationEngine.js";
+import type { AgentType } from "./agents/agentManager.js";
 
 dotenv.config();
 
@@ -16,7 +20,15 @@ const app = express();
 app.use(cors());
 app.use(express.json());
 
-const geminiClient = new GeminiAI(process.env.GEMINI_API_KEY);
+const geminiClient = new GeminiAI({
+  geminiApiKey: process.env.GEMINI_API_KEY,
+  provider: (process.env.AI_PROVIDER as "auto" | "gemini" | "vertex" | undefined) || "auto",
+  vertexApiKey: process.env.VERTEX_API_KEY || process.env.GOOGLE_API_KEY,
+  vertexApiEndpoint: process.env.VERTEX_API_ENDPOINT,
+  vertexProject: process.env.GOOGLE_CLOUD_PROJECT || process.env.GCLOUD_PROJECT,
+  vertexLocation: process.env.GOOGLE_CLOUD_LOCATION,
+  vertexModel: process.env.VERTEX_AI_MODEL,
+});
 const agentManager = new AgentManager(geminiClient);
 
 const budgetAgent = new BudgetAgent(geminiClient);
@@ -24,6 +36,37 @@ const savingsAgent = new SavingsAgent(geminiClient);
 const investmentAgent = new InvestmentAgent(geminiClient);
 const advisorAgent = new FinancialAdvisorAgent(geminiClient);
 const receiptAgent = new ReceiptTrackerAgent(geminiClient);
+
+const runAutomationTriggers = async (): Promise<AutomationResult[]> => {
+  const runnable = automationEngine.getRunnableTriggers();
+  const executed: AutomationResult[] = [];
+
+  for (const item of runnable) {
+    const result = await agentManager.process({
+      query: item.trigger.query,
+      context: item.trigger.context,
+      transactions: item.trigger.transactions,
+      preferredAgent: item.trigger.agent as AgentType,
+    });
+
+    automationEngine.executeTrigger(item.triggerId, {
+      ...result,
+      requiresUserAction: result.requiresUserAction || item.trigger.requiresApproval,
+      meta: {
+        ...(result.meta || {}),
+        automation: true,
+        triggerType: item.trigger.type,
+      },
+    });
+
+    const updated = automationEngine.getAllTriggers().find(trigger => trigger.triggerId === item.triggerId);
+    if (updated) {
+      executed.push(updated);
+    }
+  }
+
+  return executed;
+};
 
 // Main unified endpoint - the brain of the system
 app.post("/api/ai/process", async (req, res) => {
@@ -177,7 +220,111 @@ app.get("/api/data/gamification", (req, res) => {
 app.get("/api/ai/status", async (req, res) => {
   const apiKey = typeof req.headers["x-api-key"] === "string" ? req.headers["x-api-key"] : undefined;
   const connected = await advisorAgent.isConnected(apiKey);
-  return res.json({ connected });
+  return res.json({ connected, ai: geminiClient.getStatus() });
+});
+
+// ============ AUTOMATION ENDPOINTS ============
+
+// Get pending automation triggers
+app.get("/api/automation/pending", (req, res) => {
+  const pending = automationEngine.getPendingTriggers();
+  return res.json({ triggers: pending });
+});
+
+// Get approved automation triggers
+app.get("/api/automation/approved", (req, res) => {
+  const approved = automationEngine.getApprovedTriggers();
+  return res.json({ triggers: approved });
+});
+
+// Get all automation triggers
+app.get("/api/automation/all", (req, res) => {
+  const all = automationEngine.getAllTriggers();
+  return res.json({ triggers: all });
+});
+
+// Get automation trigger history
+app.get("/api/automation/history", (req, res) => {
+  const limit = Math.min(Number(req.query.limit) || 50, 100);
+  const history = automationEngine.getTriggerHistory(limit);
+  return res.json({ triggers: history });
+});
+
+// Get automation statistics
+app.get("/api/automation/stats", (req, res) => {
+  const stats = automationEngine.getStats();
+  const cacheStats = globalCache.getStats();
+  return res.json({ automationStats: stats, cacheStats });
+});
+
+// Get automation configuration
+app.get("/api/automation/config", (req, res) => {
+  const config = automationEngine.getConfig();
+  return res.json(config);
+});
+
+// Update automation configuration
+app.put("/api/automation/config", (req, res) => {
+  const config = req.body;
+  automationEngine.updateConfig(config);
+  return res.json({ success: true, config: automationEngine.getConfig() });
+});
+
+// Approve a trigger
+app.post("/api/automation/approve/:triggerId", (req, res) => {
+  const { triggerId } = req.params;
+  const success = automationEngine.approveTrigger(triggerId);
+  return res.json({ success, triggerId });
+});
+
+// Execute approved automation. This still only asks agents for advice or payloads;
+// no wallet, bank, or smart-contract transaction is submitted here.
+app.post("/api/automation/run-approved", async (req, res) => {
+  try {
+    const executed = await runAutomationTriggers();
+    return res.json({ executed });
+  } catch (error: any) {
+    console.error("Automation run error:", error);
+    return res.status(500).json({ error: error?.message ?? "Automation run failed" });
+  }
+});
+
+// Reject a trigger
+app.post("/api/automation/reject/:triggerId", (req, res) => {
+  const { triggerId } = req.params;
+  const success = automationEngine.rejectTrigger(triggerId);
+  return res.json({ success, triggerId });
+});
+
+// Detect automation opportunities for current financial state
+app.post("/api/automation/detect", async (req, res) => {
+  const context = req.body?.context || {};
+  const txns = Array.isArray(req.body?.transactions) ? req.body.transactions : [];
+  
+  const triggers = automationEngine.detectTriggers(context, txns);
+  const triggerIds = automationEngine.registerTriggers(triggers);
+
+  try {
+    const executed = await runAutomationTriggers();
+    const pending = automationEngine.getPendingTriggers();
+  
+    return res.json({
+      triggers: automationEngine.getAllTriggers().filter(trigger => triggerIds.includes(trigger.triggerId)),
+      triggerIds,
+      executed,
+      pending,
+      message: `Detected ${triggers.length} automation opportunities and ran ${executed.length} safe agent checks`
+    });
+  } catch (error: any) {
+    console.error("Automation detect error:", error);
+    return res.status(500).json({ error: error?.message ?? "Automation detection failed" });
+  }
+});
+
+// Clean up old automation triggers (older than 24 hours)
+app.post("/api/automation/cleanup", (req, res) => {
+  const removed = automationEngine.cleanupOldTriggers();
+  return res.json({ success: true, removed });
 });
 
 const port = Number(process.env.PORT || 4000);

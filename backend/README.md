@@ -27,7 +27,9 @@ The backend now includes the following agent modules:
 ## Setup
 
 1. Copy `.env.example` to `.env`.
-2. Add your Gemini API key to `GEMINI_API_KEY`.
+2. Choose an AI provider:
+   - For Google Cloud, set `AI_PROVIDER=vertex`, `GOOGLE_CLOUD_PROJECT`, `GOOGLE_CLOUD_LOCATION`, and `VERTEX_AI_MODEL`.
+   - For local Gemini API fallback, set `GEMINI_API_KEY`.
 3. Install dependencies:
    ```bash
    cd backend
@@ -67,3 +69,13 @@ The backend now includes the following agent modules:
   - Returns whether the AI advisor is connected.
 
 The frontend is configured to proxy `/api` requests to this backend during development.
+
+## Google Cloud / Vertex AI
+
+When deployed on Cloud Run, the backend authenticates to Vertex AI through the Cloud Run service account. Locally, use Application Default Credentials:
+
+```bash
+gcloud auth application-default login
+```
+
+See `../GOOGLE_CLOUD.md` for Cloud Run deployment and frontend `VITE_API_URL` setup.

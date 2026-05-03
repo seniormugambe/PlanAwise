@@ -50,7 +50,7 @@ export class SavingsAgent {
 
     const recommendation: SavingsRecommendation = {
       suggestedAmount: Math.round(targetSave * 100) / 100,
-      reason: `You still have a cushion of $${buffer.toFixed(2)} after spending, so I recommend saving $${targetSave.toFixed(2)} automatically this month.`,
+      reason: `You still have a cushion of $${buffer.toFixed(2)} after spending, so I recommend setting aside $${targetSave.toFixed(2)} this month.`,
     };
 
     if (enableAutoSave && recommendation.suggestedAmount > 0) {
@@ -64,19 +64,20 @@ export class SavingsAgent {
     }
 
     return {
-      content: `I recommend saving $${recommendation.suggestedAmount.toFixed(2)} this month. ${recommendation.reason}`,
+      content: `I recommend saving $${recommendation.suggestedAmount.toFixed(2)} this month. ${recommendation.reason}${recommendation.autoSavePayload ? ' I prepared a deposit payload, but you must approve and submit it yourself before any money moves.' : ''}`,
       category: 'saving',
       confidence: 0.9,
       meta: {
         recommendation,
       },
+      requiresUserAction: Boolean(recommendation.autoSavePayload),
     };
   }
 
   async prepareSmartContractDeposit(amount: number, contractAddress = '0x0000000000000000000000000000000000000000', chainId = 137): Promise<AgentResponse> {
     const weiValue = `0x${BigInt(Math.round(amount * 1e18)).toString(16)}`;
     return {
-      content: `Prepared a smart contract deposit payload for $${amount.toFixed(2)} to contract ${contractAddress} on chain ${chainId}. Use this payload with your wallet to execute the deposit.`,
+      content: `Prepared a smart contract deposit payload for $${amount.toFixed(2)} to contract ${contractAddress} on chain ${chainId}. Nothing has been submitted or moved; approve it in your wallet only when you are ready.`,
       category: 'saving',
       confidence: 0.88,
       meta: {
@@ -88,6 +89,7 @@ export class SavingsAgent {
           description: 'Smart contract deposit payload for wallet execution.',
         },
       },
+      requiresUserAction: true,
     };
   }
 }

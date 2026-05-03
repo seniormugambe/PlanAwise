@@ -45,6 +45,8 @@ export interface AgentResponse {
   category: Category;
   confidence: number;
   meta?: Record<string, unknown>;
+  reasoning?: string; // AI's explanation of its decision-making
+  requiresUserAction?: boolean; // Whether user approval is needed
 }
 
 export interface SavingsRecommendation {

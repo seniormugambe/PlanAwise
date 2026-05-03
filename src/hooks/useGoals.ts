@@ -1,5 +1,6 @@
 import { useState, useCallback, useEffect } from 'react';
 import { FinancialGoal, GoalProgress, GoalSummary } from '@/types/goal';
+import { apiUrl } from '@/lib/api';
 
 const parseGoal = (raw: any): FinancialGoal => ({
   ...raw,
@@ -15,7 +16,7 @@ export const useGoals = () => {
   useEffect(() => {
     const fetchGoals = async () => {
       try {
-        const response = await fetch('/api/data/goals');
+        const response = await fetch(apiUrl('/api/data/goals'));
         if (!response.ok) {
           throw new Error('Failed to load goals');
         }

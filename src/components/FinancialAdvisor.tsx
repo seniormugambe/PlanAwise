@@ -19,6 +19,7 @@ import {
 } from "lucide-react";
 import { useFinancialChat } from "@/hooks/useFinancialChat";
 import { useGamification } from "@/hooks/useGamification";
+import { apiUrl } from "@/lib/api";
 
 const suggestedQuestions = [
   { text: "💰 How can I boost my emergency fund?", icon: "💰" },
@@ -77,14 +78,14 @@ export const FinancialAdvisor = () => {
       const apiKey = localStorage.getItem('gemini_api_key');
       try {
         const environmentApiKey = import.meta.env.VITE_GEMINI_API_KEY;
-      const response = await fetch('/api/ai/manager/status', {
+        const response = await fetch(apiUrl('/api/ai/manager/status'), {
           headers: {
             ...((apiKey || environmentApiKey) ? { 'x-api-key': apiKey || environmentApiKey } : {}),
           },
         });
         if (response.ok) {
           const data = await response.json();
-          setIsGeminiConnected(Boolean(data.gemini === 'initialized'));
+          setIsGeminiConnected(Boolean(data.ai?.provider));
           return;
         }
       } catch (error) {
@@ -289,6 +290,22 @@ export const FinancialAdvisor = () => {
                           {message.content}
                         </p>
                       </div>
+                      {!message.isUser && message.reasoning && (
+                        <div className="mt-3 rounded-lg border border-border/60 bg-muted/40 p-3">
+                          <div className="mb-1 flex items-center gap-2 text-xs font-semibold text-muted-foreground">
+                            <Zap className="h-3.5 w-3.5" />
+                            Why Finley thinks this
+                          </div>
+                          <p className="m-0 text-xs leading-relaxed text-muted-foreground">
+                            {message.reasoning}
+                          </p>
+                        </div>
+                      )}
+                      {!message.isUser && message.requiresUserAction && (
+                        <div className="mt-3 rounded-lg border border-amber-200 bg-amber-50 p-3 text-xs font-medium text-amber-800 dark:border-amber-900/60 dark:bg-amber-950/30 dark:text-amber-300">
+                          User approval is required before any transfer, deposit, or payment can happen.
+                        </div>
+                      )}
                       <div className="flex items-center justify-between mt-3 pt-2 border-t border-current/10">
                         <span className="text-xs opacity-70 font-medium">
                           {message.timestamp.toLocaleTimeString([], {
@@ -296,15 +313,18 @@ export const FinancialAdvisor = () => {
                             minute: "2-digit",
                           })}
                         </span>
-                        {!message.isUser && message.category && (
-                          <span className="text-xs opacity-70 capitalize flex items-center gap-1">
-                            {message.category === 'budgeting' && '📊'}
-                            {message.category === 'saving' && '💰'}
-                            {message.category === 'investing' && '📈'}
-                            {message.category === 'debt' && '💳'}
-                            {message.category === 'general' && '💡'}
-                            {message.category}
-                          </span>
+                        {!message.isUser && (
+                          <div className="flex flex-wrap justify-end gap-2 text-xs opacity-70">
+                            {message.agentUsed && (
+                              <span>
+                                {Array.isArray(message.agentUsed) ? message.agentUsed.join(', ') : message.agentUsed}
+                              </span>
+                            )}
+                            {typeof message.confidence === 'number' && (
+                              <span>{Math.round(message.confidence * 100)}% confidence</span>
+                            )}
+                            {message.cached && <span>cached</span>}
+                          </div>
                         )}
                       </div>
                     </div>

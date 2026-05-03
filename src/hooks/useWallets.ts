@@ -1,6 +1,7 @@
 import { useState, useCallback, useEffect } from 'react';
 import { Wallet, WalletTransaction, WalletSummary } from '@/types/wallet';
 import { useWeb3Wallets } from '@/hooks/useWeb3Wallets';
+import { apiUrl } from '@/lib/api';
 
 const parseWallet = (raw: any): Wallet => ({
   ...raw,
@@ -20,7 +21,7 @@ export const useWallets = () => {
   useEffect(() => {
     const fetchWalletData = async () => {
       try {
-        const response = await fetch('/api/data/wallets');
+        const response = await fetch(apiUrl('/api/data/wallets'));
         if (!response.ok) {
           throw new Error('Failed to load wallet data');
         }

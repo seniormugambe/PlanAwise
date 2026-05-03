@@ -29,7 +29,18 @@ export default defineConfig(({ mode }) => ({
   build: {
     outDir: "dist",
     sourcemap: false,
+    chunkSizeWarningLimit: 900,
     rollupOptions: {
+      onwarn(warning, warn) {
+        if (
+          warning.message.includes("contains an annotation that Rollup cannot interpret") &&
+          warning.message.includes("node_modules")
+        ) {
+          return;
+        }
+
+        warn(warning);
+      },
       output: {
         manualChunks: {
           vendor: ["react", "react-dom"],

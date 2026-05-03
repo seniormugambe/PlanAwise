@@ -1,6 +1,5 @@
 import { useState, useCallback } from "react";
-import { useWallets } from "@/hooks/useWallets";
-import { useGoals } from "@/hooks/useGoals";
+import { apiUrl } from "@/lib/api";
 
 export interface ChatMessage {
   id: string;
@@ -8,11 +7,14 @@ export interface ChatMessage {
   isUser: boolean;
   timestamp: Date;
   category?: 'budgeting' | 'saving' | 'investing' | 'debt' | 'general';
+  reasoning?: string;
+  agentUsed?: string | string[];
+  confidence?: number;
+  cached?: boolean;
+  requiresUserAction?: boolean;
 }
 
 export const useFinancialChat = () => {
-  const { wallets, transactions } = useWallets();
-  const { goals } = useGoals();
   const [messages, setMessages] = useState<ChatMessage[]>([
     {
       id: "welcome",
@@ -40,7 +42,7 @@ export const useFinancialChat = () => {
 
     try {
       const apiKey = localStorage.getItem('gemini_api_key') || import.meta.env.VITE_GEMINI_API_KEY;
-      const response = await fetch('/api/ai/process', {
+      const response = await fetch(apiUrl('/api/ai/process'), {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -49,18 +51,6 @@ export const useFinancialChat = () => {
         body: JSON.stringify({
           query: content,
           preferredAgent: 'auto',
-          context: {
-            wallets: wallets.map(({ id, name, type, balance, network }) => ({ id, name, type, balance, network })),
-            goals: goals.map(goal => ({
-              id: goal.id,
-              title: goal.title,
-              currentAmount: goal.currentAmount,
-              targetAmount: goal.targetAmount,
-              monthlyContribution: goal.monthlyContribution,
-              category: goal.category,
-            })),
-          },
-          transactions,
         }),
       });
 
@@ -75,6 +65,11 @@ export const useFinancialChat = () => {
         isUser: false,
         timestamp: new Date(),
         category: 'general',
+        reasoning: data.reasoning,
+        agentUsed: data.agentUsed,
+        confidence: data.confidence,
+        cached: Boolean(data.meta?.cached),
+        requiresUserAction: Boolean(data.requiresUserAction),
       };
 
       setMessages(prev => [...prev, aiMessage]);

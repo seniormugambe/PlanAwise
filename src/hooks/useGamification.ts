@@ -1,5 +1,6 @@
 import { useState, useCallback, useEffect } from 'react';
 import { GamificationStats, Achievement, Challenge, Streak, Badge } from '@/types/gamification';
+import { apiUrl } from '@/lib/api';
 
 const initialGamificationStats: GamificationStats = {
   totalXP: 0,
@@ -61,7 +62,7 @@ export const useGamification = () => {
   useEffect(() => {
     const fetchStats = async () => {
       try {
-        const response = await fetch('/api/data/gamification');
+        const response = await fetch(apiUrl('/api/data/gamification'));
         if (!response.ok) {
           throw new Error('Failed to load gamification stats');
         }

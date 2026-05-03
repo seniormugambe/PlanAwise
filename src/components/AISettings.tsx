@@ -7,20 +7,43 @@ import { Badge } from "@/components/ui/badge";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Settings, Key, ExternalLink, CheckCircle, AlertCircle, Info } from "lucide-react";
+import { apiUrl } from "@/lib/api";
 
 export const AISettings = () => {
   const [apiKey, setApiKey] = useState("");
   const [isConnected, setIsConnected] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [showKey, setShowKey] = useState(false);
+  const [aiProvider, setAiProvider] = useState<"gemini" | "vertex" | null>(null);
 
   useEffect(() => {
-    // Check if API key exists
-    const existingKey = localStorage.getItem('gemini_api_key') || import.meta.env.VITE_GEMINI_API_KEY;
-    if (existingKey) {
-      setApiKey(existingKey);
-      setIsConnected(true);
-    }
+    const checkStatus = async () => {
+      const existingKey = localStorage.getItem('gemini_api_key') || import.meta.env.VITE_GEMINI_API_KEY;
+      if (existingKey) {
+        setApiKey(existingKey);
+      }
+
+      try {
+        const response = await fetch(apiUrl('/api/ai/status'), {
+          headers: {
+            ...((existingKey) ? { 'x-api-key': existingKey } : {}),
+          },
+        });
+
+        if (response.ok) {
+          const data = await response.json();
+          setIsConnected(Boolean(data.connected));
+          setAiProvider(data.ai?.provider || null);
+          return;
+        }
+      } catch (error) {
+        console.error('Failed to check AI status:', error);
+      }
+
+      setIsConnected(Boolean(existingKey));
+    };
+
+    checkStatus();
   }, []);
 
   const handleSaveKey = async () => {
@@ -68,7 +91,9 @@ export const AISettings = () => {
             <div className="flex items-center gap-3">
               <div className={`w-3 h-3 rounded-full ${isConnected ? 'bg-green-500' : 'bg-gray-400'}`} />
               <div>
-                <h3 className="font-medium">Google Gemini AI</h3>
+                <h3 className="font-medium">
+                  {aiProvider === "vertex" ? "Google Cloud Vertex AI" : "Google Gemini AI"}
+                </h3>
                 <p className="text-sm text-muted-foreground">
                   {isConnected ? 'Connected and ready' : 'Not configured'}
                 </p>
@@ -89,15 +114,15 @@ export const AISettings = () => {
                 <Alert>
                   <Info className="h-4 w-4" />
                   <AlertDescription>
-                    To enable AI-powered responses, you'll need a Google Gemini API key. 
-                    Don't worry - it's free to get started!
+                    To enable AI-powered responses locally, add a Gemini API key or configure
+                    Vertex AI on the backend for Google Cloud.
                   </AlertDescription>
                 </Alert>
               ) : (
                 <Alert>
                   <CheckCircle className="h-4 w-4" />
                   <AlertDescription>
-                    Great! Your AI assistant is connected and ready to help with personalized financial advice.
+                    Great! Your AI assistant is connected through {aiProvider === "vertex" ? "Vertex AI" : "Gemini"} and ready to help with personalized financial advice.
                   </AlertDescription>
                 </Alert>
               )}
@@ -178,8 +203,7 @@ export const AISettings = () => {
               <Alert>
                 <AlertCircle className="h-4 w-4" />
                 <AlertDescription className="text-xs">
-                  Your API key is stored locally in your browser and never sent to our servers. 
-                  Gemini offers generous free usage limits for personal use.
+                  For production, prefer Vertex AI on the backend so browser clients do not need direct AI keys.
                 </AlertDescription>
               </Alert>
             </CardContent>

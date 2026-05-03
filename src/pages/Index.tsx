@@ -1,92 +1,187 @@
-import { useState } from "react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { DashboardHeader } from "@/components/DashboardHeader";
-import { FinancialOverview } from "@/components/FinancialOverview";
+import { AIPoweredHeader } from "@/components/AIPoweredHeader";
+import { AIPoweredDashboard } from "@/components/AIPoweredDashboard";
 import { GoalTracker } from "@/components/GoalTracker";
 import { SavingsProgress } from "@/components/SavingsProgress";
-import { CashflowChart } from "@/components/CashflowChart";
 import { NotificationCenter } from "@/components/NotificationCenter";
 import { InvestmentHub } from "@/components/InvestmentHub";
-import { WalletIntegration } from "@/components/WalletIntegration";
-import { WalletDashboard } from "@/components/WalletDashboard";
-import { FinancialAdvisor } from "@/components/FinancialAdvisor";
 import { AIAssistantFab } from "@/components/AIAssistantFab";
-import { GamificationPanel } from "@/components/GamificationPanel";
 import { LevelUpNotification } from "@/components/LevelUpNotification";
 import { AchievementNotification } from "@/components/AchievementNotification";
 import { useGamification } from "@/hooks/useGamification";
+import { BudgetAnalysis } from "@/components/BudgetAnalysis";
+import { SavingsRecommendations } from "@/components/SavingsRecommendations";
+import { InvestmentAdvice } from "@/components/InvestmentAdvice";
+import { useNavigate, useSearchParams } from "react-router-dom";
+import {
+  Bell,
+  Brain,
+  Home,
+  Target,
+  TrendingUp,
+  Wallet,
+} from "lucide-react";
+
+const dashboardTabs = ["dashboard", "ai-insights", "investments", "goals", "notifications"] as const;
 
 const Index = () => {
   const { stats, showLevelUp, showAchievement } = useGamification();
+  const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
+
+  const requestedTab = searchParams.get("tab") || "dashboard";
+  const currentTab = dashboardTabs.includes(requestedTab as typeof dashboardTabs[number])
+    ? requestedTab
+    : "dashboard";
+
+  const handleTabChange = (tab: string) => {
+    if (tab === "wallets") {
+      navigate("/wallets");
+      return;
+    }
+
+    setSearchParams(tab === "dashboard" ? {} : { tab });
+  };
+
+  const mobileTabs = [
+    { id: "dashboard", label: "Dashboard", icon: Home },
+    { id: "ai-insights", label: "Insights", icon: Brain },
+    { id: "investments", label: "Invest", icon: TrendingUp },
+    { id: "goals", label: "Goals", icon: Target },
+    { id: "notifications", label: "Activity", icon: Bell },
+    { id: "wallets", label: "Wallets", icon: Wallet },
+  ];
 
   return (
-    <div className="min-h-screen bg-background pattern-dots">
-      <div className="container mx-auto p-6 space-y-8 animate-fade-in">
-        <DashboardHeader />
-        
-        <Tabs defaultValue="dashboard" className="w-full">
-          <TabsList className="grid w-full grid-cols-5">
-            <TabsTrigger value="dashboard">Dashboard</TabsTrigger>
-            <TabsTrigger value="investments">Investments</TabsTrigger>
-            <TabsTrigger value="integration">Integration</TabsTrigger>
-            <TabsTrigger value="notifications">Notifications</TabsTrigger>
-            {/* <TabsTrigger value="wallets">Wallets</TabsTrigger> */}
-          </TabsList>
-          
-          <TabsContent value="dashboard" className="space-y-6 mt-6">
-            <div className="grid grid-cols-1 xl:grid-cols-4 gap-6">
-              {/* Main content */}
-              <div className="xl:col-span-2 space-y-6">
-                <div className="animate-slide-up">
-                  <FinancialOverview />
-                </div>
-                <div className="animate-slide-up" style={{ animationDelay: '0.2s' }}>
-                  <CashflowChart />
-                </div>
+    <div className="min-h-screen bg-background">
+      <AIPoweredHeader />
+
+      <div className="container mx-auto p-4 pb-20 md:pb-8">
+        {/* Mobile Tab Navigation - Only show on mobile */}
+        <div className="md:hidden mb-6">
+          <Tabs value={currentTab} onValueChange={handleTabChange} className="w-full">
+            <TabsList className="mb-4 flex h-auto w-full justify-start gap-1 overflow-x-auto p-1">
+              {mobileTabs.map((tab) => {
+                const Icon = tab.icon;
+
+                return (
+                  <TabsTrigger
+                    key={tab.id}
+                    value={tab.id}
+                    className="min-w-20 flex-col gap-1 px-3 py-2 text-xs"
+                  >
+                    <Icon className="h-4 w-4" />
+                    {tab.label}
+                  </TabsTrigger>
+                );
+              })}
+            </TabsList>
+
+            <TabsContent value="dashboard" className="space-y-6 mt-4">
+              <AIPoweredDashboard />
+            </TabsContent>
+
+            <TabsContent value="ai-insights" className="space-y-6 mt-4">
+              <BudgetAnalysis />
+              <SavingsRecommendations />
+              <InvestmentAdvice />
+            </TabsContent>
+
+            <TabsContent value="investments" className="mt-4">
+              <InvestmentHub />
+            </TabsContent>
+
+            <TabsContent value="goals" className="space-y-6 mt-4">
+              <GoalTracker />
+              <SavingsProgress />
+            </TabsContent>
+
+            <TabsContent value="notifications" className="mt-4">
+              <NotificationCenter />
+            </TabsContent>
+          </Tabs>
+        </div>
+
+        {/* Desktop Content - Show all content without tabs */}
+        <div className="hidden md:block space-y-8">
+          {currentTab === "dashboard" && (
+            <AIPoweredDashboard />
+          )}
+
+          {currentTab === "ai-insights" && (
+            <div className="space-y-8">
+              <div className="text-center py-6">
+                <h2 className="text-3xl font-bold text-gradient-primary mb-2">
+                  AI-Powered Financial Insights
+                </h2>
+                <p className="text-muted-foreground text-lg">
+                  Get personalized recommendations from our AI financial assistant
+                </p>
               </div>
-              
-              {/* Right Sidebar */}
-              <div className="xl:col-span-2 grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-1 gap-6">
-                <div className="space-y-6">
-                  <div className="animate-slide-up" style={{ animationDelay: '0.3s' }}>
-                    <GoalTracker />
-                  </div>
-                  <div className="animate-slide-up" style={{ animationDelay: '0.4s' }}>
-                    <SavingsProgress />
-                  </div>
-                  <div className="animate-slide-up" style={{ animationDelay: '0.5s' }}>
-                    <GamificationPanel />
-                  </div>
+
+              <div className="grid grid-cols-1 xl:grid-cols-3 gap-8">
+                <div className="xl:col-span-1">
+                  <BudgetAnalysis />
                 </div>
-                
-                {/* AI Financial Advisor - Hidden on smaller screens, shown as FAB */}
-                <div className="hidden xl:block animate-slide-up" style={{ animationDelay: '0.6s' }}>
-                  <FinancialAdvisor />
+                <div className="xl:col-span-1">
+                  <SavingsRecommendations />
+                </div>
+                <div className="xl:col-span-1">
+                  <InvestmentAdvice />
                 </div>
               </div>
             </div>
-          </TabsContent>
+          )}
 
-          <TabsContent value="investments" className="mt-6">
-            <InvestmentHub />
-          </TabsContent>
+          {currentTab === "investments" && (
+            <div className="space-y-6">
+              <div className="text-center py-6">
+                <h2 className="text-3xl font-bold text-gradient-primary mb-2">
+                  Investment Portfolio
+                </h2>
+                <p className="text-muted-foreground text-lg">
+                  Track and manage your investment growth
+                </p>
+              </div>
+              <InvestmentHub />
+            </div>
+          )}
 
-          <TabsContent value="integration" className="mt-6">
-            <WalletIntegration />
-          </TabsContent>
+          {currentTab === "goals" && (
+            <div className="space-y-6">
+              <div className="text-center py-6">
+                <h2 className="text-3xl font-bold text-gradient-primary mb-2">
+                  Financial Goals
+                </h2>
+                <p className="text-muted-foreground text-lg">
+                  Set, track, and achieve your financial objectives
+                </p>
+              </div>
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                <GoalTracker />
+                <SavingsProgress />
+              </div>
+            </div>
+          )}
 
-          <TabsContent value="notifications" className="mt-6">
-            <NotificationCenter />
-          </TabsContent>
-
-          <TabsContent value="wallets" className="mt-6">
-            <WalletDashboard />
-          </TabsContent>
-        </Tabs>
+          {currentTab === "notifications" && (
+            <div className="space-y-6">
+              <div className="text-center py-6">
+                <h2 className="text-3xl font-bold text-gradient-primary mb-2">
+                  Activity & Notifications
+                </h2>
+                <p className="text-muted-foreground text-lg">
+                  Stay updated with your financial activity
+                </p>
+              </div>
+              <NotificationCenter />
+            </div>
+          )}
+        </div>
       </div>
-      
-      {/* Floating AI Assistant for smaller screens */}
-      <div className="xl:hidden">
+
+      {/* Mobile AI Assistant FAB */}
+      <div className="md:hidden">
         <AIAssistantFab />
       </div>
 
@@ -97,7 +192,7 @@ const Index = () => {
         title={stats.level.title}
         onClose={() => {}}
       />
-      
+
       <AchievementNotification
         achievement={showAchievement}
         onClose={() => {}}
