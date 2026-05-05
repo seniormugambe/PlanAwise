@@ -18,14 +18,16 @@ import {
   PiggyBank,
   BarChart3,
   Lightbulb,
+  PieChart,
   Zap
 } from "lucide-react";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import { XPIndicator } from "@/components/XPIndicator";
-import { DeferredWeb3Status } from "@/components/DeferredWeb3Status";
+import { NotificationBell } from "@/components/NotificationBell";
 import { AIPoweredAddGoalDialog } from "@/components/AIPoweredAddGoalDialog";
 import { useNavigate, useLocation } from "react-router-dom";
 import { useAIPoweredUI } from "@/hooks/useAIPoweredUI";
+import { cn } from "@/lib/utils";
 
 const iconMap = {
   home: Home,
@@ -37,6 +39,7 @@ const iconMap = {
   target: Target,
   'piggy-bank': PiggyBank,
   'bar-chart': BarChart3,
+  'pie-chart': PieChart,
   lightbulb: Lightbulb,
   zap: Zap,
 };
@@ -47,7 +50,7 @@ export const AIPoweredHeader = () => {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const { uiConfig, isAnalyzing } = useAIPoweredUI();
 
-  const visibleTabIds = ["dashboard", "investments", "goals", "notifications"];
+  const visibleTabIds = ["dashboard", "budget", "investments", "goals", "notifications"];
   const activeSearchTab = new URLSearchParams(location.search).get("tab") || "dashboard";
   const currentTab = location.pathname === "/wallets"
     ? "wallets"
@@ -71,6 +74,12 @@ export const AIPoweredHeader = () => {
       label: "Dashboard",
       icon: "home",
       description: "Overview & insights"
+    },
+    {
+      id: "budget",
+      label: "Budget",
+      icon: "pie-chart",
+      description: "Spending plan"
     },
     {
       id: "investments",
@@ -111,6 +120,7 @@ export const AIPoweredHeader = () => {
   function getIconForTab(tabId: string): string {
     const iconMapping: Record<string, string> = {
       dashboard: 'home',
+      budget: 'pie-chart',
       investments: 'trending-up',
       wallets: 'wallet',
       goals: 'target',
@@ -122,6 +132,7 @@ export const AIPoweredHeader = () => {
   function getDescriptionForTab(tabId: string): string {
     const descriptionMapping: Record<string, string> = {
       dashboard: 'Overview & insights',
+      budget: 'Spending plan',
       investments: 'Portfolio & growth',
       wallets: 'Manage accounts',
       goals: 'Track progress',
@@ -132,6 +143,15 @@ export const AIPoweredHeader = () => {
 
   // AI-powered quick actions
   const quickActions = uiConfig?.navigation.quickActions || [];
+
+  const runQuickAction = (label: string, action: () => void) => {
+    if (label === "View Budget") {
+      navigate("/?tab=budget");
+      return;
+    }
+
+    action();
+  };
 
   return (
     <div className="sticky top-0 z-50 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 border-b">
@@ -144,7 +164,7 @@ export const AIPoweredHeader = () => {
                 <Sparkles className="w-4 h-4 text-white" />
               </div>
               <div>
-                <h1 className="text-xl font-bold text-foreground">PlanAwise</h1>
+                <h1 className="text-xl font-bold text-foreground">PlanWise</h1>
                 <p className="text-xs text-muted-foreground hidden sm:block">
                   {isAnalyzing ? 'AI Analyzing...' : 'AI-Powered Finance'}
                 </p>
@@ -172,7 +192,7 @@ export const AIPoweredHeader = () => {
           {/* Desktop Actions */}
           <div className="hidden md:flex items-center gap-2">
             <XPIndicator />
-            <DeferredWeb3Status variant="compact" />
+            <NotificationBell />
             <ThemeToggle />
 
             {/* AI-Powered Quick Actions */}
@@ -183,7 +203,7 @@ export const AIPoweredHeader = () => {
                   key={index}
                   variant="outline"
                   size="sm"
-                  onClick={action.action}
+                  onClick={() => runQuickAction(action.label, action.action)}
                   className="gap-2"
                 >
                   <Icon className="w-4 h-4" />
@@ -215,7 +235,7 @@ export const AIPoweredHeader = () => {
                       <Sparkles className="w-5 h-5 text-white" />
                     </div>
                     <div>
-                      <h2 className="text-lg font-bold">PlanAwise</h2>
+                      <h2 className="text-lg font-bold">PlanWise</h2>
                       <p className="text-sm text-muted-foreground">
                         {isAnalyzing ? 'AI Analyzing your profile...' : 'AI-Powered Finance Assistant'}
                       </p>
@@ -238,7 +258,7 @@ export const AIPoweredHeader = () => {
                               variant="outline"
                               className="w-full justify-start h-auto p-3"
                               onClick={() => {
-                                action.action();
+                                runQuickAction(action.label, action.action);
                                 setIsMobileMenuOpen(false);
                               }}
                             >
@@ -264,7 +284,12 @@ export const AIPoweredHeader = () => {
                         <Button
                           key={item.id}
                           variant={isActive ? "default" : "ghost"}
-                          className="w-full justify-start h-auto p-3"
+                          className={cn(
+                            "w-full justify-start h-auto p-3 border transition-all",
+                            isActive
+                              ? "border-primary/30 bg-primary text-primary-foreground shadow-sm"
+                              : "border-transparent hover:border-border hover:bg-muted"
+                          )}
                           onClick={() => {
                             setIsMobileMenuOpen(false);
                             navigateToTab(item.id);
@@ -272,9 +297,14 @@ export const AIPoweredHeader = () => {
                         >
                           <div className="flex items-center gap-3 w-full">
                             <Icon className="w-5 h-5 flex-shrink-0" />
-                            <div className="text-left">
-                              <div className="font-medium">{item.label}</div>
-                              <div className="text-xs text-muted-foreground">{item.description}</div>
+                            <div className="min-w-0 flex-1 text-left">
+                              <div className="flex items-center gap-2 font-medium">
+                                {item.label}
+                                {isActive && <span className="h-1.5 w-1.5 rounded-full bg-primary-foreground" />}
+                              </div>
+                              <div className={cn("text-xs", isActive ? "text-primary-foreground/75" : "text-muted-foreground")}>
+                                {item.description}
+                              </div>
                             </div>
                           </div>
                         </Button>
@@ -291,7 +321,7 @@ export const AIPoweredHeader = () => {
                     </div>
                     <div className="flex items-center justify-between pt-2">
                       <XPIndicator />
-                      <DeferredWeb3Status variant="compact" />
+                      <NotificationBell />
                     </div>
                     <div className="flex justify-center">
                       <ThemeToggle />
@@ -319,18 +349,24 @@ export const AIPoweredHeader = () => {
         {/* Desktop Navigation */}
         <div className="hidden md:block">
           <Tabs value={currentTab} className="w-full">
-            <TabsList className="grid w-full grid-cols-5 h-12">
+            <TabsList className="grid h-12 w-full auto-cols-fr grid-flow-col">
               {navigationItems.filter(item => item.visible).map((item) => {
                 const Icon = iconMap[item.icon as keyof typeof iconMap] || Home;
+                const isActive = currentTab === item.id;
                 return (
                   <TabsTrigger
                     key={item.id}
                     value={item.id}
-                    className="flex items-center gap-2 h-10"
+                    className={cn(
+                      "relative flex h-10 items-center gap-2 rounded-md border border-transparent px-3 font-medium text-muted-foreground transition-all",
+                      "hover:border-border hover:bg-background/70 hover:text-foreground",
+                      "data-[state=active]:border-primary/30 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-md"
+                    )}
                     onClick={() => navigateToTab(item.id)}
                   >
-                    <Icon className="w-4 h-4" />
+                    <Icon className={cn("w-4 h-4", isActive ? "text-primary-foreground" : "text-muted-foreground")} />
                     <span className="hidden lg:inline">{item.label}</span>
+                    {isActive && <span className="absolute bottom-1 h-1 w-5 rounded-full bg-primary-foreground/80" />}
                   </TabsTrigger>
                 );
               })}

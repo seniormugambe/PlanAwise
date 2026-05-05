@@ -1,6 +1,6 @@
-# Planwise AI Backend
+# PlanWise AI Backend
 
-This folder contains a separate backend service for the AI agent used by the PlanAwise frontend.
+This folder contains a separate backend service for the AI agent used by the PlanWise frontend.
 
 ## Agent Layer
 
@@ -17,7 +17,7 @@ The backend now includes the following agent modules:
 - **Financial Advisor Agent**
   - Chat-based assistant
   - Answers financial questions
-  - Gives recommendations using Gemini AI or fallback logic
+  - Gives recommendations using OpenAI, Gemini, Vertex AI, or fallback logic
 - **Investment Agent**
   - Provides investment guidance based on risk profile and cash flow
 - **Receipt Tracker Agent**
@@ -28,6 +28,7 @@ The backend now includes the following agent modules:
 
 1. Copy `.env.example` to `.env`.
 2. Choose an AI provider:
+   - For OpenAI, set `AI_PROVIDER=openai`, `OPENAI_API_KEY`, and optionally `OPENAI_MODEL`.
    - For Google Cloud, set `AI_PROVIDER=vertex`, `GOOGLE_CLOUD_PROJECT`, `GOOGLE_CLOUD_LOCATION`, and `VERTEX_AI_MODEL`.
    - For local Gemini API fallback, set `GEMINI_API_KEY`.
 3. Install dependencies:

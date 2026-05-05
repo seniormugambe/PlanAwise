@@ -1,8 +1,7 @@
 import { useState, useEffect, useRef } from "react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { ScrollArea } from "@/components/ui/scroll-area";
+import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { AnimatedBotAvatar } from "@/components/AnimatedBotAvatar";
 import {
@@ -16,18 +15,22 @@ import {
   DollarSign,
   ArrowDown,
   Zap,
+  Brain,
 } from "lucide-react";
 import { useFinancialChat } from "@/hooks/useFinancialChat";
 import { useGamification } from "@/hooks/useGamification";
-import { apiUrl } from "@/lib/api";
+import { useGoals } from "@/hooks/useGoals";
+import { useWallets } from "@/hooks/useWallets";
+import { apiUrl, guardedFetch } from "@/lib/api";
 import { AgentStatusBadge } from "@/components/AgentStatusBadge";
+import { buildFinancialContext } from "@/lib/financialContext";
 
 const suggestedQuestions = [
-  { text: "💰 How can I boost my emergency fund?", icon: "💰" },
-  { text: "📈 Is my savings rate on track?", icon: "📈" },
-  { text: "🎯 Help me prioritize my goals!", icon: "🎯" },
-  { text: "🤔 Invest or pay debt first?", icon: "🤔" },
-  { text: "✨ Best budgeting tips for me?", icon: "✨" },
+  { text: "How can I boost my emergency fund?", icon: DollarSign },
+  { text: "Is my savings rate on track?", icon: TrendingUp },
+  { text: "Help me prioritize my goals", icon: Star },
+  { text: "Should I invest or pay debt first?", icon: Zap },
+  { text: "Give me a budget checkup", icon: Sparkles },
 ];
 
 const botPersonalities = [
@@ -54,12 +57,11 @@ const botPersonalities = [
   },
 ];
 
-const encouragingMessages = [
-  "You're doing great! 🌟",
-  "Smart question! 💡",
-  "I love helping with this! ❤️",
-  "Excellent thinking! 🎯",
-  "You're on the right track! 🚀",
+const thinkingMessages = [
+  "Checking your financial snapshot...",
+  "Comparing goals, cash flow, and risk...",
+  "Looking for the most useful next step...",
+  "Routing this to the right finance agent...",
 ];
 
 const getGreetingByTime = () => {
@@ -71,35 +73,41 @@ const getGreetingByTime = () => {
 
 export const FinancialAdvisor = () => {
   const { messages, isLoading, sendMessage, clearChat } = useFinancialChat();
-  const [isGeminiConnected, setIsGeminiConnected] = useState(false);
+  const { transactions, getWalletSummary } = useWallets();
+  const { getActiveGoals } = useGoals();
+  const walletSummary = getWalletSummary();
+  const activeGoals = getActiveGoals();
+  const [isAIConnected, setIsAIConnected] = useState(false);
+  const [aiProviderLabel, setAiProviderLabel] = useState("AI");
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
   useEffect(() => {
     const checkConnection = async () => {
-      const apiKey = localStorage.getItem('gemini_api_key');
       try {
-        const environmentApiKey = import.meta.env.VITE_GEMINI_API_KEY;
-        const response = await fetch(apiUrl('/api/ai/manager/status'), {
+        const apiKey = localStorage.getItem('openai_api_key') || import.meta.env.VITE_OPENAI_API_KEY;
+        const response = await guardedFetch(apiUrl('/api/ai/manager/status?check=true'), {
           headers: {
-            ...((apiKey || environmentApiKey) ? { 'x-api-key': apiKey || environmentApiKey } : {}),
+            'Content-Type': 'application/json',
+            ...(apiKey ? { 'x-api-key': apiKey } : {}),
           },
         });
         if (response.ok) {
           const data = await response.json();
-          setIsGeminiConnected(Boolean(data.ai?.provider));
+          const provider = data.ai?.provider;
+          setAiProviderLabel(provider === "openai" ? "OpenAI" : provider === "vertex" ? "Vertex AI" : provider === "gemini" ? "Gemini" : "AI");
+          setIsAIConnected(data.connected === true);
           return;
         }
       } catch (error) {
         console.error('AI backend status error:', error);
       }
-      setIsGeminiConnected(Boolean(apiKey));
+      setIsAIConnected(false);
     };
 
     checkConnection();
 
     const handleStorage = () => {
-      const apiKey = localStorage.getItem('gemini_api_key');
-      setIsGeminiConnected(Boolean(apiKey));
+      checkConnection();
     };
 
     window.addEventListener('storage', handleStorage);
@@ -111,8 +119,8 @@ export const FinancialAdvisor = () => {
   const [showHeartAnimation, setShowHeartAnimation] = useState(false);
   const [messageCount, setMessageCount] = useState(0);
   const [showScrollButton, setShowScrollButton] = useState(false);
-  const scrollAreaRef = useRef<HTMLDivElement>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const latestThinkingMessage = thinkingMessages[messageCount % thinkingMessages.length];
 
   // Auto-scroll to bottom when new messages arrive
   useEffect(() => {
@@ -131,14 +139,17 @@ export const FinancialAdvisor = () => {
   };
 
   const handleSendMessage = async (content: string) => {
-    if (!content.trim()) return;
+    if (!content.trim() || isLoading) return;
     setIsTyping(true);
     setMessageCount(prev => prev + 1);
     try {
-      await sendMessage(content);
+      await sendMessage(content, {
+        context: buildFinancialContext(walletSummary, activeGoals, transactions),
+        transactions: transactions.slice(-20),
+      });
       setErrorMsg(null);
     } catch (err: any) {
-      setErrorMsg("Gemini AI is not connected or there was an error. Please verify your local API key configuration.");
+      setErrorMsg("The AI service is not connected or returned an error. Please verify your backend AI provider configuration.");
     }
     setInputValue("");
     setIsTyping(false);
@@ -150,8 +161,7 @@ export const FinancialAdvisor = () => {
   };
 
   const handleSuggestedQuestion = (question: string) => {
-    const cleanQuestion = question.replace(/[^\w\s?]/g, "").trim();
-    sendMessage(cleanQuestion);
+    handleSendMessage(question);
   };
 
   const switchBot = () => {
@@ -161,7 +171,7 @@ export const FinancialAdvisor = () => {
   };
 
   return (
-    <Card className="h-[700px] flex flex-col bg-background border-0 shadow-none">
+    <Card className="flex h-full min-h-0 flex-col bg-background border-0 shadow-none">
       {/* Floating hearts animation */}
       {showHeartAnimation && (
         <div className="absolute inset-0 pointer-events-none z-10">
@@ -181,7 +191,7 @@ export const FinancialAdvisor = () => {
       )}
 
       {/* Header */}
-      <div className="flex items-center justify-between p-4 border-b bg-card/50 backdrop-blur-sm">
+      <div className="flex flex-shrink-0 items-center justify-between p-4 border-b bg-card/50 backdrop-blur-sm">
         <div className="flex items-center gap-3">
           <AnimatedBotAvatar
             mood={isLoading || isTyping ? 'thinking' : currentBot.mood}
@@ -212,20 +222,20 @@ export const FinancialAdvisor = () => {
               <span className="ml-2 hidden sm:inline">Clear</span>
             </Button>
           )}
-          <div className={`flex items-center gap-2 px-3 py-1 rounded-full ${isGeminiConnected ? 'bg-green-100 dark:bg-green-900/30' : 'bg-red-100 dark:bg-red-900/30'}`}> 
-            <div className={`w-2 h-2 rounded-full animate-pulse ${isGeminiConnected ? 'bg-green-500' : 'bg-red-500'}`}></div>
-            <span className={`text-xs font-medium ${isGeminiConnected ? 'text-green-700 dark:text-green-400' : 'text-red-700 dark:text-red-400'}`}>
-              {isGeminiConnected ? 'Gemini AI Connected' : 'Gemini AI Offline'}
+          <div className={`flex items-center gap-2 px-3 py-1 rounded-full ${isAIConnected ? 'bg-green-100 dark:bg-green-900/30' : 'bg-red-100 dark:bg-red-900/30'}`}> 
+            <div className={`w-2 h-2 rounded-full animate-pulse ${isAIConnected ? 'bg-green-500' : 'bg-red-500'}`}></div>
+            <span className={`text-xs font-medium ${isAIConnected ? 'text-green-700 dark:text-green-400' : 'text-red-700 dark:text-red-400'}`}>
+              {isAIConnected ? `${aiProviderLabel} Connected` : 'AI Offline'}
             </span>
           </div>
         </div>
       </div>
 
       {/* Chat Content */}
-      <div className="flex-1 flex flex-col">
+      <div className="flex min-h-0 flex-1 flex-col">
         {/* Suggested Questions */}
         {messages.length === 1 && (
-          <div className="p-6 space-y-4 animate-fade-in bg-gradient-to-br from-primary/5 to-accent/5">
+          <div className="flex-shrink-0 p-6 space-y-4 animate-fade-in bg-gradient-to-br from-primary/5 to-accent/5">
             <div className="text-center">
               <div className="flex items-center justify-center gap-2 mb-2">
                 <Sparkles className="w-5 h-5 text-primary animate-pulse" />
@@ -238,28 +248,29 @@ export const FinancialAdvisor = () => {
               </p>
             </div>
             <div className="grid grid-cols-1 gap-3 max-w-md mx-auto">
-              {suggestedQuestions.map((question, index) => (
-                <button
-                  key={index}
-                  className="flex items-center gap-3 p-4 bg-card hover:bg-card/80 border border-border/50 rounded-xl transition-all duration-300 hover:scale-[1.02] hover:shadow-md text-left group"
-                  style={{ animationDelay: `${index * 0.1}s` }}
-                  onClick={() => handleSuggestedQuestion(question.text)}
-                >
-                  <span className="text-2xl group-hover:scale-110 transition-transform duration-300">
-                    {question.icon}
-                  </span>
-                  <span className="font-medium text-foreground">
-                    {question.text.replace(/[^\w\s?]/g, "").trim()}
-                  </span>
-                </button>
-              ))}
+              {suggestedQuestions.map((question, index) => {
+                const Icon = question.icon;
+                return (
+                  <button
+                    key={question.text}
+                    className="flex items-center gap-3 p-4 bg-card hover:bg-card/80 border border-border/50 rounded-xl transition-all duration-300 hover:scale-[1.02] hover:shadow-md text-left group"
+                    style={{ animationDelay: `${index * 0.1}s` }}
+                    onClick={() => handleSuggestedQuestion(question.text)}
+                  >
+                    <Icon className="h-5 w-5 text-primary group-hover:scale-110 transition-transform duration-300" />
+                    <span className="font-medium text-foreground">
+                      {question.text}
+                    </span>
+                  </button>
+                );
+              })}
             </div>
           </div>
         )}
 
         {/* Messages */}
-        <div className="flex-1 overflow-hidden relative">
-          <ScrollArea className="h-full" onScrollCapture={handleScroll}>
+        <div className="relative min-h-0 flex-1 overflow-hidden">
+          <div className="h-full overflow-y-auto overscroll-contain scroll-smooth" onScroll={handleScroll}>
             <div className="p-4 space-y-6">
               {messages.slice(1).map((message, index) => (
                 <div
@@ -301,6 +312,26 @@ export const FinancialAdvisor = () => {
                           <p className="m-0 text-xs leading-relaxed text-muted-foreground">
                             {message.reasoning}
                           </p>
+                        </div>
+                      )}
+                      {!message.isUser && message.agenticPlan && message.agenticPlan.length > 0 && (
+                        <div className="mt-3 rounded-lg border border-primary/20 bg-primary/5 p-3">
+                          <div className="mb-2 flex items-center gap-2 text-xs font-semibold text-primary">
+                            <Brain className="h-3.5 w-3.5" />
+                            Agentic workflow
+                          </div>
+                          <div className="space-y-2">
+                            {message.agenticPlan.map((step) => (
+                              <div key={step.id} className="flex items-start gap-2 text-xs">
+                                <Badge variant="secondary" className="mt-0.5 capitalize">
+                                  {step.agent}
+                                </Badge>
+                                <span className="leading-relaxed text-muted-foreground">
+                                  {step.goal}
+                                </span>
+                              </div>
+                            ))}
+                          </div>
                         </div>
                       )}
                       {!message.isUser && message.requiresUserAction && (
@@ -355,7 +386,7 @@ export const FinancialAdvisor = () => {
                   <div className="bg-card border border-border/50 rounded-2xl p-4 shadow-sm max-w-[75%]">
                     <div className="flex items-center gap-2 mb-3">
                       <span className="text-sm text-muted-foreground font-medium">
-                        {currentBot.name} is crafting a response...
+                        {latestThinkingMessage}
                       </span>
                       <Sparkles className="w-4 h-4 text-primary animate-spin" />
                     </div>
@@ -377,7 +408,7 @@ export const FinancialAdvisor = () => {
               {/* Invisible element for auto-scroll */}
               <div ref={messagesEndRef} />
             </div>
-          </ScrollArea>
+          </div>
 
           {/* Scroll to bottom button */}
           {showScrollButton && (
@@ -393,7 +424,7 @@ export const FinancialAdvisor = () => {
         </div>
 
         {/* Input Area */}
-        <div className="border-t bg-card/50 backdrop-blur-sm">
+        <div className="flex-shrink-0 border-t bg-card/50 backdrop-blur-sm">
           {/* Quick Actions */}
           {!isLoading && inputValue.length === 0 && messages.length > 1 && (
             <div className="flex flex-wrap justify-center gap-2 p-3 border-b">
@@ -431,18 +462,17 @@ export const FinancialAdvisor = () => {
           <div className="p-4">
             <div className="flex gap-3 items-end">
               <div className="flex-1 relative">
-                <Input
+                <Textarea
                   value={inputValue}
                   onChange={(e) => setInputValue(e.target.value)}
-                  placeholder={`Ask ${currentBot.name} anything about money... 💬`}
+                  placeholder={`Ask ${currentBot.name} anything about money...`}
                   onKeyDown={(e) => {
                     if (e.key === "Enter" && !e.shiftKey) {
                       e.preventDefault();
                       handleSendMessage(inputValue);
                     }
                   }}
-                  disabled={isLoading}
-                  className="min-h-[48px] pr-16 text-base border-2 focus:border-primary/50 transition-all duration-300 rounded-xl"
+                  className="min-h-[52px] max-h-32 resize-none pr-16 text-base border-2 focus:border-primary/50 transition-all duration-300 rounded-xl"
                 />
                 <div className="absolute right-3 top-1/2 -translate-y-1/2 flex items-center gap-2">
                   {inputValue.length > 0 && (
@@ -486,8 +516,8 @@ export const FinancialAdvisor = () => {
               </div>
               <div className="flex items-center gap-2">
                 <span className="flex items-center gap-1.5 text-muted-foreground">
-                  <div className={`w-2 h-2 rounded-full animate-pulse ${isGeminiConnected ? 'bg-green-500' : 'bg-red-500'}`}></div>
-                  <span className="font-medium">{isGeminiConnected ? `${currentBot.name} is online` : `${currentBot.name} is offline`}</span>
+                  <div className={`w-2 h-2 rounded-full animate-pulse ${isAIConnected ? 'bg-green-500' : 'bg-red-500'}`}></div>
+                  <span className="font-medium">{isAIConnected ? `${currentBot.name} is online` : `${currentBot.name} is offline`}</span>
                 </span>
               </div>
             </div>

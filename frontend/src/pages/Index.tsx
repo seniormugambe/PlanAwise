@@ -5,6 +5,8 @@ import { GoalTracker } from "@/components/GoalTracker";
 import { SavingsProgress } from "@/components/SavingsProgress";
 import { NotificationCenter } from "@/components/NotificationCenter";
 import { InvestmentHub } from "@/components/InvestmentHub";
+import { BudgetAnalysis } from "@/components/BudgetAnalysis";
+import { CashflowChart } from "@/components/CashflowChart";
 import { AIAssistantFab } from "@/components/AIAssistantFab";
 import { LevelUpNotification } from "@/components/LevelUpNotification";
 import { AchievementNotification } from "@/components/AchievementNotification";
@@ -15,12 +17,14 @@ import { useNavigate, useSearchParams } from "react-router-dom";
 import {
   Bell,
   Home,
+  PieChart,
   Target,
   TrendingUp,
   Wallet,
 } from "lucide-react";
+import { cn } from "@/lib/utils";
 
-const dashboardTabs = ["dashboard", "investments", "goals", "notifications"] as const;
+const dashboardTabs = ["dashboard", "budget", "investments", "goals", "notifications"] as const;
 
 const Index = () => {
   const { stats, showLevelUp, showAchievement } = useGamification();
@@ -43,6 +47,7 @@ const Index = () => {
 
   const mobileTabs = [
     { id: "dashboard", label: "Dashboard", icon: Home },
+    { id: "budget", label: "Budget", icon: PieChart },
     { id: "investments", label: "Invest", icon: TrendingUp },
     { id: "goals", label: "Goals", icon: Target },
     { id: "notifications", label: "Activity", icon: Bell },
@@ -60,15 +65,20 @@ const Index = () => {
             <TabsList className="mb-4 flex h-auto w-full justify-start gap-1 overflow-x-auto p-1">
               {mobileTabs.map((tab) => {
                 const Icon = tab.icon;
+                const isActive = currentTab === tab.id;
 
                 return (
                   <TabsTrigger
                     key={tab.id}
                     value={tab.id}
-                    className="min-w-20 flex-col gap-1 px-3 py-2 text-xs"
+                    className={cn(
+                      "relative min-w-20 flex-col gap-1 rounded-md border border-transparent px-3 py-2 text-xs text-muted-foreground transition-all",
+                      "data-[state=active]:border-primary/30 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-md"
+                    )}
                   >
-                    <Icon className="h-4 w-4" />
+                    <Icon className={cn("h-4 w-4", isActive ? "text-primary-foreground" : "text-muted-foreground")} />
                     {tab.label}
+                    {isActive && <span className="absolute bottom-1 h-1 w-4 rounded-full bg-primary-foreground/80" />}
                   </TabsTrigger>
                 );
               })}
@@ -76,6 +86,11 @@ const Index = () => {
 
             <TabsContent value="dashboard" className="space-y-6 mt-4">
               <AIPoweredDashboard />
+            </TabsContent>
+
+            <TabsContent value="budget" className="space-y-6 mt-4">
+              <BudgetAnalysis />
+              <CashflowChart />
             </TabsContent>
 
             <TabsContent value="investments" className="mt-4">
@@ -113,6 +128,23 @@ const Index = () => {
               </div>
               <InvestmentAdvice />
               <InvestmentHub />
+            </div>
+          )}
+
+          {currentTab === "budget" && (
+            <div className="space-y-6">
+              <div className="text-center py-6">
+                <h2 className="text-3xl font-bold text-gradient-primary mb-2">
+                  Budget Center
+                </h2>
+                <p className="text-muted-foreground text-lg">
+                  Review spending, budget status, and top expense categories
+                </p>
+              </div>
+              <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
+                <BudgetAnalysis />
+                <CashflowChart />
+              </div>
             </div>
           )}
 

@@ -10,7 +10,7 @@
 
 import { Wallet, WalletTransaction } from '@/types/wallet';
 import { FinancialGoal } from '@/types/goal';
-import { apiUrl } from '@/lib/api';
+import { apiUrl, guardedFetch } from '@/lib/api';
 
 export interface FinancialContext {
   monthlyIncome?: number;
@@ -21,6 +21,10 @@ export interface FinancialContext {
     title: string;
     current: number;
     target: number;
+  }>;
+  conversationHistory?: Array<{
+    role: 'user' | 'assistant';
+    content: string;
   }>;
   wallets?: Wallet[];
   recentTransactions?: WalletTransaction[];
@@ -91,7 +95,15 @@ class AIAgentService {
   private apiKey: string | null = null;
 
   private constructor() {
-    this.apiKey = localStorage.getItem('gemini_api_key') || import.meta.env.VITE_GEMINI_API_KEY;
+    this.apiKey = localStorage.getItem('openai_api_key') || import.meta.env.VITE_OPENAI_API_KEY || null;
+  }
+
+  private getRequestHeaders(priority: 'user' | 'background' = 'user'): Record<string, string> {
+    return {
+      'Content-Type': 'application/json',
+      'x-ai-priority': priority,
+      ...(this.apiKey ? { 'x-api-key': this.apiKey } : {}),
+    };
   }
 
   static getInstance(): AIAgentService {
@@ -106,7 +118,7 @@ class AIAgentService {
    */
   setApiKey(key: string): void {
     this.apiKey = key;
-    localStorage.setItem('gemini_api_key', key);
+    localStorage.setItem('openai_api_key', key);
   }
 
   /**
@@ -119,12 +131,9 @@ class AIAgentService {
     preferredAgent: 'auto' | 'budget' | 'savings' | 'investment' | 'advisor' | 'receipt' = 'auto'
   ): Promise<AgentResponse> {
     try {
-      const response = await fetch(apiUrl('/api/ai/process'), {
+      const response = await guardedFetch(apiUrl('/api/ai/process'), {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          ...(this.apiKey ? { 'x-api-key': this.apiKey } : {}),
-        },
+        headers: this.getRequestHeaders('user'),
         body: JSON.stringify({
           query,
           context: this.prepareContext(context),
@@ -152,12 +161,9 @@ class AIAgentService {
     context?: FinancialContext
   ): Promise<AgentResponse> {
     try {
-      const response = await fetch(apiUrl('/api/ai/advice'), {
+      const response = await guardedFetch(apiUrl('/api/ai/advice'), {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          ...(this.apiKey ? { 'x-api-key': this.apiKey } : {}),
-        },
+        headers: this.getRequestHeaders('user'),
         body: JSON.stringify({
           question,
           context: this.prepareContext(context),
@@ -184,12 +190,9 @@ class AIAgentService {
     mode: 'analyze' | 'suggest' | 'alert' = 'analyze'
   ): Promise<AgentResponse> {
     try {
-      const response = await fetch(apiUrl('/api/ai/budget'), {
+      const response = await guardedFetch(apiUrl('/api/ai/budget'), {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          ...(this.apiKey ? { 'x-api-key': this.apiKey } : {}),
-        },
+        headers: this.getRequestHeaders('user'),
         body: JSON.stringify({
           context: this.prepareContext(context),
           transactions: transactions || [],
@@ -217,12 +220,9 @@ class AIAgentService {
     autoSave: boolean = false
   ): Promise<AgentResponse> {
     try {
-      const response = await fetch(apiUrl('/api/ai/savings'), {
+      const response = await guardedFetch(apiUrl('/api/ai/savings'), {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          ...(this.apiKey ? { 'x-api-key': this.apiKey } : {}),
-        },
+        headers: this.getRequestHeaders('user'),
         body: JSON.stringify({
           context: this.prepareContext(context),
           transactions: transactions || [],
@@ -250,12 +250,9 @@ class AIAgentService {
     chainId: number = 137
   ): Promise<any> {
     try {
-      const response = await fetch(apiUrl('/api/ai/savings/deposit'), {
+      const response = await guardedFetch(apiUrl('/api/ai/savings/deposit'), {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          ...(this.apiKey ? { 'x-api-key': this.apiKey } : {}),
-        },
+        headers: this.getRequestHeaders('user'),
         body: JSON.stringify({
           amount,
           contractAddress,
@@ -283,12 +280,9 @@ class AIAgentService {
     question?: string
   ): Promise<AgentResponse> {
     try {
-      const response = await fetch(apiUrl('/api/ai/investment'), {
+      const response = await guardedFetch(apiUrl('/api/ai/investment'), {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          ...(this.apiKey ? { 'x-api-key': this.apiKey } : {}),
-        },
+        headers: this.getRequestHeaders('user'),
         body: JSON.stringify({
           context: this.prepareContext(context),
           transactions: transactions || [],
@@ -312,12 +306,9 @@ class AIAgentService {
    */
   async processReceipt(receiptText: string): Promise<Receipt> {
     try {
-      const response = await fetch(apiUrl('/api/ai/receipts'), {
+      const response = await guardedFetch(apiUrl('/api/ai/receipts'), {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          ...(this.apiKey ? { 'x-api-key': this.apiKey } : {}),
-        },
+        headers: this.getRequestHeaders('user'),
         body: JSON.stringify({
           receiptText,
         }),
@@ -343,7 +334,7 @@ class AIAgentService {
    */
   async getReceipts(): Promise<Receipt[]> {
     try {
-      const response = await fetch(apiUrl('/api/ai/receipts'), {
+      const response = await guardedFetch(apiUrl('/api/ai/receipts'), {
         method: 'GET',
         headers: {
           'Content-Type': 'application/json',
@@ -373,7 +364,7 @@ class AIAgentService {
    */
   async checkStatus(): Promise<boolean> {
     try {
-      const response = await fetch(apiUrl('/api/ai/manager/status'), {
+      const response = await guardedFetch(apiUrl('/api/ai/manager/status'), {
         method: 'GET',
         headers: {
           'Content-Type': 'application/json',
@@ -401,12 +392,9 @@ class AIAgentService {
     context?: FinancialContext,
     transactions?: WalletTransaction[]
   ): Promise<AutomationRunResult> {
-    const response = await fetch(apiUrl('/api/automation/detect'), {
+    const response = await guardedFetch(apiUrl('/api/automation/detect'), {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        ...(this.apiKey ? { 'x-api-key': this.apiKey } : {}),
-      },
+      headers: this.getRequestHeaders('background'),
       body: JSON.stringify({
         context: this.prepareContext(context),
         transactions: transactions || [],

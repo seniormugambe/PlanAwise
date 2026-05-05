@@ -34,7 +34,17 @@ interface NotificationSettings {
   pushEnabled: boolean;
 }
 
-export const NotificationCenter = () => {
+interface NotificationCenterProps {
+  variant?: 'page' | 'drawer' | 'summary';
+  enableAgentRefresh?: boolean;
+  maxItems?: number;
+}
+
+export const NotificationCenter = ({
+  variant = 'page',
+  enableAgentRefresh = variant === 'page',
+  maxItems,
+}: NotificationCenterProps) => {
   const { toast } = useToast();
   const navigate = useNavigate();
   const { transactions, getWalletSummary } = useWallets();
@@ -92,6 +102,7 @@ export const NotificationCenter = () => {
 
   const [unreadCount, setUnreadCount] = useState(0);
   const [dismissedAgentIds, setDismissedAgentIds] = useState<Set<string>>(new Set());
+  const isCompact = variant === 'drawer' || variant === 'summary';
 
   const currentMonthTransactions = useMemo(() => {
     const now = new Date();
@@ -220,11 +231,13 @@ export const NotificationCenter = () => {
   ]);
 
   useEffect(() => {
+    if (!enableAgentRefresh) return;
+
     refreshAgentNotifications();
     const intervalId = window.setInterval(refreshAgentNotifications, 45000);
 
     return () => window.clearInterval(intervalId);
-  }, [refreshAgentNotifications]);
+  }, [enableAgentRefresh, refreshAgentNotifications]);
 
   const markAsRead = (id: string) => {
     setNotifications(prev => 
@@ -309,13 +322,56 @@ export const NotificationCenter = () => {
     }
   };
 
+  const visibleNotifications = maxItems ? notifications.slice(0, maxItems) : notifications;
+
+  if (variant === 'summary') {
+    const latest = notifications[0];
+
+    return (
+      <Card>
+        <CardHeader className="pb-3">
+          <CardTitle className="flex items-center justify-between text-base">
+            <span className="flex items-center gap-2">
+              <BellRing className="h-4 w-4 text-primary" />
+              Notifications
+            </span>
+            {unreadCount > 0 && (
+              <Badge variant="destructive">{unreadCount} new</Badge>
+            )}
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-3">
+          {latest ? (
+            <div className="flex items-start gap-3 rounded-md border bg-muted/20 p-3">
+              {getNotificationIcon(latest.type)}
+              <div className="min-w-0 flex-1">
+                <p className="truncate text-sm font-medium">{latest.title}</p>
+                <p className="line-clamp-2 text-xs text-muted-foreground">{latest.message}</p>
+              </div>
+            </div>
+          ) : (
+            <p className="text-sm text-muted-foreground">No notifications yet.</p>
+          )}
+          <Button
+            variant="outline"
+            size="sm"
+            className="w-full"
+            onClick={() => navigate('/?tab=notifications')}
+          >
+            Open Activity
+          </Button>
+        </CardContent>
+      </Card>
+    );
+  }
+
   return (
-    <div className="space-y-6">
+    <div className={isCompact ? "space-y-4" : "space-y-6"}>
       {/* Notification Header */}
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between gap-3">
         <div className="flex items-center gap-3">
           <div className="relative">
-            <BellRing className="w-6 h-6 text-primary" />
+            <BellRing className={isCompact ? "h-5 w-5 text-primary" : "w-6 h-6 text-primary"} />
             {unreadCount > 0 && (
               <Badge 
                 variant="destructive" 
@@ -326,12 +382,14 @@ export const NotificationCenter = () => {
             )}
           </div>
           <div>
-            <h2 className="text-2xl font-bold">Notifications</h2>
-            <p className="text-muted-foreground">Stay updated with your financial progress</p>
+            <h2 className={isCompact ? "text-lg font-semibold" : "text-2xl font-bold"}>Notifications</h2>
+            {!isCompact && (
+              <p className="text-muted-foreground">Stay updated with your financial progress</p>
+            )}
           </div>
         </div>
         <div className="flex flex-wrap items-center justify-end gap-2">
-          <AgentStatusBadge agent="investment" />
+          {!isCompact && <AgentStatusBadge agent="investment" />}
           {unreadCount > 0 && (
             <Button variant="outline" onClick={markAllAsRead} size="sm">
               Mark all as read
@@ -341,6 +399,7 @@ export const NotificationCenter = () => {
       </div>
 
       {/* Notification Settings */}
+      {!isCompact && (
       <Card>
         <CardHeader>
           <CardTitle>Notification Settings</CardTitle>
@@ -418,25 +477,26 @@ export const NotificationCenter = () => {
           </div>
         </CardContent>
       </Card>
+      )}
 
       {/* Notifications List */}
       <Card>
         <CardHeader>
-          <CardTitle>Recent Notifications</CardTitle>
+          <CardTitle>{isCompact ? "Recent" : "Recent Notifications"}</CardTitle>
         </CardHeader>
         <CardContent>
           <div className="space-y-3">
-            {notifications.length === 0 ? (
+            {visibleNotifications.length === 0 ? (
               <div className="text-center py-8 text-muted-foreground">
                 <Bell className="w-12 h-12 mx-auto mb-4 opacity-50" />
                 <p>No notifications yet</p>
                 <p className="text-sm">You'll see important updates here</p>
               </div>
             ) : (
-              notifications.map((notification) => (
+              visibleNotifications.map((notification) => (
                 <div 
                   key={notification.id}
-                  className={`p-4 rounded-lg border transition-colors ${
+                  className={`${isCompact ? "p-3" : "p-4"} rounded-lg border transition-colors ${
                     notification.read 
                       ? 'bg-muted/30 border-border' 
                       : 'bg-card border-primary/20 shadow-sm'
@@ -452,21 +512,21 @@ export const NotificationCenter = () => {
                             <div className="w-2 h-2 bg-primary rounded-full" />
                           )}
                         </div>
-                        <p className="text-sm text-muted-foreground mb-2">
+                        <p className={`${isCompact ? "line-clamp-2" : ""} text-sm text-muted-foreground mb-2`}>
                           {notification.message}
                         </p>
-                        <p className="text-xs text-muted-foreground">
+                        {!isCompact && <p className="text-xs text-muted-foreground">
                           {notification.timestamp.toLocaleDateString()} at{' '}
                           {notification.timestamp.toLocaleTimeString([], { 
                             hour: '2-digit', 
                             minute: '2-digit' 
                           })}
-                        </p>
+                        </p>}
                       </div>
                     </div>
                     
-                    <div className="flex items-center gap-2 ml-4">
-                      {notification.actionable && (
+                    <div className="flex items-center gap-1 ml-3">
+                      {notification.actionable && !isCompact && (
                         <Button 
                           size="sm" 
                           variant="outline"
@@ -488,6 +548,16 @@ export const NotificationCenter = () => {
               ))
             )}
           </div>
+          {isCompact && (
+            <Button
+              variant="outline"
+              size="sm"
+              className="mt-4 w-full"
+              onClick={() => navigate('/?tab=notifications')}
+            >
+              View all notifications
+            </Button>
+          )}
         </CardContent>
       </Card>
     </div>

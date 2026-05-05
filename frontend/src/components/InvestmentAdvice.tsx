@@ -1,11 +1,13 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState, type FormEvent } from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Lightbulb, TrendingUp, RefreshCw, AlertCircle } from 'lucide-react';
+import { Input } from '@/components/ui/input';
+import { Lightbulb, TrendingUp, RefreshCw, AlertCircle, ShieldCheck } from 'lucide-react';
 import { useWallets } from '@/hooks/useWallets';
 import { useAIAgent } from '@/hooks/useAIAgent';
 import { AgentStatusBadge } from '@/components/AgentStatusBadge';
+import { buildFinancialContext, getMonthlyCashflow } from '@/lib/financialContext';
 
 interface InvestmentAdviceData {
   advice: string;
@@ -20,47 +22,84 @@ export const InvestmentAdvice = () => {
 
   const [advice, setAdvice] = useState<InvestmentAdviceData | null>(null);
   const [customQuestion, setCustomQuestion] = useState('');
+  const [questionDraft, setQuestionDraft] = useState('');
   const [showInput, setShowInput] = useState(false);
+  const [isQuestionSubmitting, setIsQuestionSubmitting] = useState(false);
 
   const summary = getWalletSummary();
+  const { monthlyIncome, monthlyExpenses } = getMonthlyCashflow(transactions);
+  const localAdvice = useMemo(() => {
+    const surplus = monthlyIncome - monthlyExpenses;
+    const riskLevel = surplus > 1000 ? "medium" : "low";
+    const adviceText = surplus > 0
+      ? `Your dashboard shows an estimated monthly surplus of $${surplus.toLocaleString()}. Before investing more, keep an emergency buffer, protect near-term goals, then use diversified low-cost funds for gradual growth.`
+      : `Your dashboard does not show a positive monthly surplus right now. Focus on stabilizing cash flow and keeping cash reserves before increasing investment risk.`;
 
-  const monthlyIncome = 5500; // Mock value - should come from transactions
-  const monthlyExpenses = 3420; // Mock value
+    return {
+      advice: adviceText,
+      recommendations: [
+        "Confirm your emergency fund before adding investment risk",
+        "Use diversified, low-cost funds for core long-term exposure",
+        "Invest gradually only from true surplus after bills and goals",
+      ],
+      riskLevel,
+      confidence: 0.78,
+    };
+  }, [monthlyIncome, monthlyExpenses]);
 
   useEffect(() => {
-    const fetchAdvice = async () => {
-      try {
-        const response = await getInvestmentAdvice(
-          {
-            monthlyIncome,
-            monthlyExpenses,
-            currentSavings: summary.totalAssets,
-            totalBalance: summary.totalBalance,
-          },
-          transactions,
-          customQuestion || 'general investment strategy'
-        );
-
-        if (response) {
-          const recommendations = (response.answer || '')
-            .split(/\d\.\s+/)
-            .filter((line: string) => line.trim())
-            .slice(0, 3);
-
-          setAdvice({
-            advice: response.answer || '',
-            recommendations: recommendations,
-            riskLevel: response.meta?.riskLevel || 'medium',
-            confidence: response.confidence || 0.85,
-          });
-        }
-      } catch (err) {
-        console.error('Investment advice error:', err);
-      }
+    const openInvestmentAI = () => {
+      setShowInput(true);
+      setQuestionDraft((current) => current || "What investment move should I make next based on my portfolio risk?");
     };
 
-    fetchAdvice();
-  }, [customQuestion]);
+    window.addEventListener("planwise:open-investment-ai", openInvestmentAI);
+    return () => window.removeEventListener("planwise:open-investment-ai", openInvestmentAI);
+  }, []);
+
+  const fetchAdvice = async (question: string) => {
+    try {
+      const response = await getInvestmentAdvice(
+        buildFinancialContext(summary, [], transactions),
+        transactions,
+        question
+      );
+
+      if (response) {
+        const recommendations = (response.answer || '')
+          .split(/\d\.\s+/)
+          .filter((line: string) => line.trim())
+          .slice(0, 3);
+
+        setAdvice({
+          advice: response.answer || '',
+          recommendations: recommendations,
+          riskLevel: response.meta?.riskLevel || 'medium',
+          confidence: response.confidence || 0.85,
+        });
+      }
+    } catch (err) {
+      console.error('Investment advice error:', err);
+    }
+  };
+
+  const handleAskQuestion = async (event?: FormEvent<HTMLFormElement>) => {
+    event?.preventDefault();
+    const nextQuestion = questionDraft.trim();
+    if (!nextQuestion || isQuestionSubmitting) return;
+
+    try {
+      setIsQuestionSubmitting(true);
+      setCustomQuestion(nextQuestion);
+      await fetchAdvice(nextQuestion);
+    } finally {
+      setIsQuestionSubmitting(false);
+    }
+  };
+
+  const handleRefreshAIAdvice = async () => {
+    await fetchAdvice(customQuestion || 'general investment strategy');
+  };
 
   const getRiskColor = (level: string) => {
     switch (level) {
@@ -92,8 +131,8 @@ export const InvestmentAdvice = () => {
   }
 
   return (
-    <div className="space-y-6">
-      <Card className="border-l-4 border-l-blue-500">
+    <div id="investment-advice-panel" className="scroll-mt-28 space-y-6">
+      <Card className="border-l-4 border-l-blue-500 shadow-card">
         <CardHeader>
           <div className="flex items-center justify-between">
             <div>
@@ -101,7 +140,7 @@ export const InvestmentAdvice = () => {
                 <TrendingUp className="w-5 h-5 text-blue-600" />
                 Investment Advice
               </CardTitle>
-              <CardDescription>AI-powered investment strategies personalized for your financial situation</CardDescription>
+              <CardDescription className="text-foreground/75">AI-powered investment strategies personalized for your financial situation</CardDescription>
               <div className="mt-2">
                 <AgentStatusBadge agent="investment" />
               </div>
@@ -131,67 +170,90 @@ export const InvestmentAdvice = () => {
           </div>
 
           {/* AI Advice */}
-          {advice && (
+          {(advice || localAdvice) && (
             <div className="space-y-4">
-              <div className="p-4 bg-primary/10 border border-primary/20 rounded-lg">
+              <div className="rounded-lg border border-primary/30 bg-primary/10 p-4 shadow-sm dark:border-primary/40">
                 <div className="flex gap-3">
                   <Lightbulb className="w-5 h-5 text-primary flex-shrink-0 mt-1" />
                   <div className="flex-1">
                     <div className="flex items-center gap-2 mb-2">
                       <h4 className="font-semibold text-foreground">Investment Agent Strategy</h4>
-                      <Badge className={getRiskColor(advice.riskLevel)}>{advice.riskLevel} risk</Badge>
-                      <div className={`text-xs font-semibold ${getConfidenceColor(advice.confidence)}`}>
-                        {(advice.confidence * 100).toFixed(0)}% confidence
+                      <Badge className={getRiskColor((advice || localAdvice).riskLevel)}>{(advice || localAdvice).riskLevel} risk</Badge>
+                      <div className={`text-xs font-semibold ${getConfidenceColor((advice || localAdvice).confidence)}`}>
+                        {((advice || localAdvice).confidence * 100).toFixed(0)}% confidence
                       </div>
                     </div>
-                    <p className="text-sm text-muted-foreground leading-relaxed">
-                      {advice.advice.substring(0, 500)}
-                      {advice.advice.length > 500 ? '...' : ''}
+                    <p className="text-sm leading-relaxed text-foreground/85">
+                      {(advice || localAdvice).advice.substring(0, 500)}
+                      {(advice || localAdvice).advice.length > 500 ? '...' : ''}
                     </p>
                   </div>
                 </div>
               </div>
 
-              {/* Key Recommendations */}
-              {advice.recommendations && advice.recommendations.length > 0 && (
+              {/* Guardrails */}
+              {(advice || localAdvice).recommendations && (advice || localAdvice).recommendations.length > 0 && (
                 <div className="space-y-3">
-                  <h4 className="font-semibold flex items-center gap-2">
-                    <Lightbulb className="w-4 h-4" />
-                    Key Recommendations
+                  <h4 className="flex items-center gap-2 font-semibold text-foreground">
+                    <ShieldCheck className="w-4 h-4" />
+                    Investment Guardrails
                   </h4>
-                  <div className="grid grid-cols-1 gap-2">
-                    {advice.recommendations.slice(0, 3).map((rec, idx) => (
-                      <div key={idx} className="flex gap-3 p-3 bg-muted/40 rounded-lg border border-border/70">
-                        <Badge variant="outline" className="flex-shrink-0">
-                          {idx + 1}
-                        </Badge>
-                        <p className="text-sm">{rec.substring(0, 200)}</p>
-                      </div>
+                  <div className="flex flex-wrap gap-2">
+                    {(advice || localAdvice).recommendations.slice(0, 3).map((rec, idx) => (
+                      <Button
+                        key={idx}
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={() => {
+                          setShowInput(true);
+                          setQuestionDraft(`Explain this investment guardrail for my finances: ${rec}`);
+                        }}
+                        className="h-auto justify-start whitespace-normal border-border/80 text-left text-foreground/90 shadow-sm"
+                      >
+                        {rec.substring(0, 120)}
+                      </Button>
                     ))}
                   </div>
                 </div>
               )}
 
+              <Button
+                variant="outline"
+                className="w-full"
+                onClick={handleRefreshAIAdvice}
+                disabled={isLoading}
+              >
+                {isLoading ? <RefreshCw className="mr-2 h-4 w-4 animate-spin" /> : <RefreshCw className="mr-2 h-4 w-4" />}
+                Refresh with AI Agent
+              </Button>
+
               {/* Custom Question */}
               {showInput ? (
-                <div className="p-4 bg-muted/40 rounded-lg border border-border/70 space-y-3">
+                <div className="space-y-3 rounded-lg border border-border/80 bg-muted/35 p-4 shadow-sm">
                   <label className="block text-sm font-semibold">Ask a specific investment question:</label>
-                  <div className="flex gap-2">
-                    <input
+                  <form className="flex gap-2" onSubmit={handleAskQuestion}>
+                    <Input
                       type="text"
                       placeholder="e.g., Should I invest in crypto?"
-                      value={customQuestion}
-                      onChange={(e) => setCustomQuestion(e.target.value)}
-                      className="flex-1 px-3 py-2 border border-input rounded-lg text-sm bg-background text-foreground placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                      value={questionDraft}
+                      onChange={(e) => setQuestionDraft(e.target.value)}
+                      className="relative z-10 flex-1"
                     />
                     <Button
+                      type="submit"
                       size="sm"
-                      onClick={() => setShowInput(false)}
-                      disabled={isLoading}
+                      disabled={isQuestionSubmitting || !questionDraft.trim()}
+                      className="relative z-10"
                     >
-                      {isLoading ? <RefreshCw className="w-4 h-4 animate-spin" /> : 'Ask'}
+                      {isQuestionSubmitting ? <RefreshCw className="w-4 h-4 animate-spin" /> : 'Ask'}
                     </Button>
-                  </div>
+                  </form>
+                  {customQuestion && (
+                    <p className="text-xs text-muted-foreground">
+                      Current question: {customQuestion}
+                    </p>
+                  )}
                 </div>
               ) : (
                 <Button
@@ -219,12 +281,8 @@ export const InvestmentAdvice = () => {
             </div>
           )}
 
-          {/* Disclaimer */}
-          <div className="p-3 bg-warning/10 border border-warning/20 rounded-lg text-xs text-amber-700 dark:text-amber-300">
-            <p>
-              ⚠️ This is AI-generated advice and not financial counsel. Please consult with a certified financial
-              advisor before making investment decisions.
-            </p>
+          <div className="rounded-md border border-amber-200/40 bg-amber-50/40 px-3 py-2 text-[11px] text-muted-foreground dark:border-amber-900/30 dark:bg-amber-950/10">
+            <p>⚠ AI insights are informational only</p>
           </div>
         </CardContent>
       </Card>

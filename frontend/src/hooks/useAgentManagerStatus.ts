@@ -1,5 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
-import { apiUrl } from "@/lib/api";
+import { apiUrl, guardedFetch } from "@/lib/api";
 
 export type AgentName = "budget" | "savings" | "investment" | "advisor" | "receipt";
 
@@ -12,8 +12,8 @@ export interface AgentManagerStatus {
 }
 
 const fetchAgentManagerStatus = async (): Promise<AgentManagerStatus> => {
-  const apiKey = localStorage.getItem("gemini_api_key") || import.meta.env.VITE_GEMINI_API_KEY;
-  const response = await fetch(apiUrl("/api/ai/manager/status"), {
+  const apiKey = localStorage.getItem("openai_api_key") || import.meta.env.VITE_OPENAI_API_KEY;
+  const response = await guardedFetch(apiUrl("/api/ai/manager/status"), {
     headers: {
       ...(apiKey ? { "x-api-key": apiKey } : {}),
     },

@@ -1,6 +1,7 @@
 import express from "express";
 import cors from "cors";
 import dotenv from "dotenv";
+import type { NextFunction, Request, Response } from "express";
 import { BudgetAgent } from "./agents/budgetAgent.js";
 import { SavingsAgent } from "./agents/savingsAgent.js";
 import { InvestmentAgent } from "./agents/investmentAgent.js";
@@ -18,17 +19,55 @@ dotenv.config();
 
 const app = express();
 app.use(cors());
-app.use(express.json());
+app.use(express.json({ limit: "64kb" }));
+
+const aiRateLimitWindowMs = Number(process.env.AI_RATE_LIMIT_WINDOW_MS || 60_000);
+const aiRateLimitMax = Number(process.env.AI_RATE_LIMIT_MAX || 12);
+const aiRateLimitBuckets = new Map<string, number[]>();
+
+const getClientKey = (req: Request): string => {
+  const apiKey = typeof req.headers["x-api-key"] === "string" ? req.headers["x-api-key"] : "";
+  return apiKey ? `key:${apiKey.slice(-12)}` : `ip:${req.ip}`;
+};
+
+const aiRateLimiter = (req: Request, res: Response, next: NextFunction) => {
+  if (req.method === "GET") {
+    return next();
+  }
+
+  const now = Date.now();
+  const key = getClientKey(req);
+  const recent = (aiRateLimitBuckets.get(key) || []).filter(timestamp => now - timestamp < aiRateLimitWindowMs);
+
+  if (recent.length >= aiRateLimitMax) {
+    const retryAfterSeconds = Math.max(1, Math.ceil((aiRateLimitWindowMs - (now - recent[0])) / 1000));
+    res.setHeader("Retry-After", String(retryAfterSeconds));
+    return res.status(429).json({
+      error: "AI rate limit reached. Please wait before sending another request.",
+      retryAfterSeconds,
+    });
+  }
+
+  recent.push(now);
+  aiRateLimitBuckets.set(key, recent);
+  next();
+};
+
+app.use("/api/ai", aiRateLimiter);
+app.use("/api/automation/detect", aiRateLimiter);
 
 const geminiClient = new GeminiAI({
   geminiApiKey: process.env.GEMINI_API_KEY,
   geminiModel: process.env.GEMINI_MODEL,
-  provider: (process.env.AI_PROVIDER as "auto" | "gemini" | "vertex" | undefined) || "auto",
+  provider: (process.env.AI_PROVIDER as "auto" | "gemini" | "vertex" | "openai" | undefined) || "auto",
   vertexApiKey: process.env.VERTEX_API_KEY || process.env.GOOGLE_API_KEY,
   vertexApiEndpoint: process.env.VERTEX_API_ENDPOINT,
   vertexProject: process.env.GOOGLE_CLOUD_PROJECT || process.env.GCLOUD_PROJECT,
   vertexLocation: process.env.GOOGLE_CLOUD_LOCATION,
   vertexModel: process.env.VERTEX_AI_MODEL,
+  openaiApiKey: process.env.OPENAI_API_KEY,
+  openaiModel: process.env.OPENAI_MODEL,
+  openaiApiEndpoint: process.env.OPENAI_API_ENDPOINT,
 });
 const agentManager = new AgentManager(geminiClient);
 
@@ -100,23 +139,40 @@ app.post("/api/ai/process", async (req, res) => {
 
 // System status endpoint
 app.get("/api/ai/manager/status", async (req, res) => {
-  const apiKey = typeof req.headers["x-api-key"] === "string" ? req.headers["x-api-key"] : undefined;
-  const status = agentManager.getStatus();
-  const connected = await agentManager.isConnected(apiKey);
-  const agents = status.agents && typeof status.agents === "object" && !Array.isArray(status.agents)
-    ? Object.fromEntries(
-        Object.keys(status.agents as Record<string, unknown>).map(agent => [
-          agent,
-          connected ? "active" : "offline",
-        ])
-      )
-    : status.agents;
+  try {
+    const apiKey = typeof req.headers["x-api-key"] === "string" ? req.headers["x-api-key"] : undefined;
+    const shouldCheckConnection = req.query.check === "1" || req.query.check === "true";
+    const status = agentManager.getStatus();
+    let connected = false;
+    if (shouldCheckConnection) {
+      try {
+        connected = await Promise.race([
+          agentManager.isConnected(apiKey),
+          new Promise<boolean>(resolve => setTimeout(() => resolve(false), 2500)),
+        ]);
+      } catch (connectionError) {
+        console.warn("Agent manager connection check failed:", connectionError);
+      }
+    }
+    const agents = status.agents && typeof status.agents === "object" && !Array.isArray(status.agents)
+      ? Object.fromEntries(
+          Object.keys(status.agents as Record<string, unknown>).map(agent => [
+            agent,
+            connected || !shouldCheckConnection ? "active" : "offline",
+          ])
+        )
+      : status.agents;
 
-  return res.json({
-    ...status,
-    agents,
-    connected,
-  });
+    return res.json({
+      ...status,
+      agents,
+      connected,
+      connectionChecked: shouldCheckConnection,
+    });
+  } catch (error: any) {
+    console.error("Agent manager status error:", error);
+    return res.status(500).json({ error: error?.message ?? "Agent manager status failed" });
+  }
 });
 
 app.post("/api/ai/advice", async (req, res) => {
@@ -214,7 +270,14 @@ app.post("/api/ai/investment", async (req, res) => {
 
   try {
     const result = await investmentAgent.getInvestmentAdvice(context, transactions, question, apiKey);
-    return res.json(result);
+    return res.json({
+      answer: result.content,
+      agentUsed: "investment",
+      confidence: result.confidence,
+      meta: result.meta,
+      reasoning: result.reasoning,
+      requiresUserAction: result.requiresUserAction,
+    });
   } catch (error: any) {
     console.error("Investment AI error:", error);
     return res.status(500).json({ error: error?.message ?? "Investment AI request failed" });
@@ -255,8 +318,9 @@ app.get("/api/data/gamification", (req, res) => {
 
 app.get("/api/ai/status", async (req, res) => {
   const apiKey = typeof req.headers["x-api-key"] === "string" ? req.headers["x-api-key"] : undefined;
-  const connected = await advisorAgent.isConnected(apiKey);
-  return res.json({ connected, ai: geminiClient.getStatus() });
+  const shouldCheckConnection = req.query.check === "1" || req.query.check === "true";
+  const connected = shouldCheckConnection ? await advisorAgent.isConnected(apiKey) : false;
+  return res.json({ connected, connectionChecked: shouldCheckConnection, ai: geminiClient.getStatus() });
 });
 
 // ============ AUTOMATION ENDPOINTS ============
@@ -363,7 +427,7 @@ app.post("/api/automation/cleanup", (req, res) => {
   return res.json({ success: true, removed });
 });
 
-const port = Number(process.env.PORT || 4000);
+const port = Number(process.env.PORT || 5000);
 const server = app.listen(port, () => {
   console.log(`AI backend running on http://localhost:${port}`);
 });

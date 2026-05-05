@@ -4,26 +4,37 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Alert, AlertDescription } from "@/components/ui/alert";
+import { Progress } from "@/components/ui/progress";
+import { useNavigate } from "react-router-dom";
 import {
+  AlertTriangle,
   Sparkles,
-  TrendingUp,
   Target,
-  PiggyBank,
   BarChart3,
   Lightbulb,
-  ArrowRight,
   RefreshCw,
   ShieldCheck,
+  Trophy,
+  Award,
+  ArrowRight,
+  CheckCircle2,
+  ClipboardList,
+  Flame,
+  Star,
 } from "lucide-react";
 import { useAIPoweredUI } from "@/hooks/useAIPoweredUI";
+import { useGamification } from "@/hooks/useGamification";
 import { FinancialOverview } from "@/components/FinancialOverview";
 import { BudgetAnalysis } from "@/components/BudgetAnalysis";
 import { SavingsRecommendations } from "@/components/SavingsRecommendations";
 import { InvestmentAdvice } from "@/components/InvestmentAdvice";
 import { GoalTracker } from "@/components/GoalTracker";
 import { CashflowChart } from "@/components/CashflowChart";
-import { GamificationPanel } from "@/components/GamificationPanel";
 import { NotificationCenter } from "@/components/NotificationCenter";
+import { PlanWiseCopilot } from "@/components/PlanWiseCopilot";
+import { useGoals } from "@/hooks/useGoals";
+import { useWallets } from "@/hooks/useWallets";
+import { getAnalysisTransactions } from "@/lib/financialContext";
 
 const componentMap = {
   financialOverview: FinancialOverview,
@@ -32,13 +43,29 @@ const componentMap = {
   investmentAdvice: InvestmentAdvice,
   goalTracker: GoalTracker,
   cashflowChart: CashflowChart,
-  gamificationPanel: GamificationPanel,
-  notificationCenter: NotificationCenter,
 };
 
 export const AIPoweredDashboard = () => {
+  const navigate = useNavigate();
   const { uiConfig, automationRun, isAnalyzing, refreshAnalysis } = useAIPoweredUI();
+  const { stats, getProgressToNextLevel, getActiveStreaks, getActiveChallenges } = useGamification();
+  const { transactions } = useWallets();
+  const { getActiveGoals } = useGoals();
   const [expandedInsights, setExpandedInsights] = useState(false);
+  const [completedActionIds, setCompletedActionIds] = useState<string[]>([]);
+  const levelProgress = Math.min(100, Math.round(getProgressToNextLevel()));
+  const activeChallenges = getActiveChallenges();
+  const featuredReward = activeChallenges.find((challenge) => challenge.category === "saving") || activeChallenges[0];
+  const analysisTransactions = getAnalysisTransactions(transactions);
+  const foodSpend = analysisTransactions
+    .filter((transaction) => transaction.type === "expense" && ["food", "dining", "groceries"].includes(transaction.category.toLowerCase()))
+    .reduce((sum, transaction) => sum + Math.abs(transaction.amount), 0);
+  const highlightedGoal = getActiveGoals()
+    .map((goal) => ({
+      title: goal.title,
+      progress: goal.targetAmount > 0 ? Math.round((goal.currentAmount / goal.targetAmount) * 100) : 0,
+    }))
+    .sort((a, b) => b.progress - a.progress)[0];
 
   if (isAnalyzing || !uiConfig) {
     return (
@@ -68,7 +95,7 @@ export const AIPoweredDashboard = () => {
 
   // Sort components by priority and position
   const sortedComponents = Object.entries(uiConfig.components)
-    .filter(([_, config]) => config.visible)
+    .filter(([key, config]) => config.visible && key !== 'gamificationPanel' && key !== 'notificationCenter')
     .sort(([, a], [, b]) => {
       if (a.priority !== b.priority) {
         const priorityOrder = { high: 0, medium: 1, low: 2 };
@@ -86,10 +113,93 @@ export const AIPoweredDashboard = () => {
     }
   };
 
+  const scrollToElement = (id: string) => {
+    window.setTimeout(() => {
+      document.getElementById(id)?.scrollIntoView({ behavior: "smooth", block: "start" });
+    }, 80);
+  };
+
+  const goToDashboardComponent = (componentKey: string) => {
+    navigate("/");
+    scrollToElement(`dashboard-component-${componentKey}`);
+  };
+
+  const toggleActionComplete = (actionId: string) => {
+    setCompletedActionIds((current) =>
+      current.includes(actionId)
+        ? current.filter((id) => id !== actionId)
+        : [...current, actionId]
+    );
+  };
+
+  const nextBestActions = [
+    {
+      id: "budget-food",
+      title: "Review food spending",
+      detail: foodSpend > 0
+        ? `$${foodSpend.toLocaleString(undefined, { maximumFractionDigits: 0 })} spent in food categories needs a quick check.`
+        : "Open the budget view and check dining or grocery trends.",
+      cta: "Analyze Budget",
+      icon: BarChart3,
+      priority: "High",
+      action: () => navigate("/?tab=budget"),
+    },
+    {
+      id: "goal-push",
+      title: highlightedGoal ? `Push ${highlightedGoal.title}` : "Create one clear goal",
+      detail: highlightedGoal
+        ? `${highlightedGoal.progress}% complete. One small contribution keeps progress moving.`
+        : "Set a concrete savings target so the dashboard can guide your next step.",
+      cta: highlightedGoal ? "View Goal" : "Create Goal",
+      icon: Target,
+      priority: "Medium",
+      action: () => navigate("/?tab=goals"),
+    },
+    {
+      id: "ask-ai",
+      title: "Ask the AI for one decision",
+      detail: "Use Copilot to turn the dashboard into a specific financial decision.",
+      cta: "Ask Copilot",
+      icon: Sparkles,
+      priority: "AI",
+      action: () => scrollToElement("planwise-copilot"),
+    },
+  ];
+
+  const getInsightActions = (insight: string) => {
+    const lower = insight.toLowerCase();
+
+    if (lower.includes("invest") || lower.includes("diversif") || lower.includes("portfolio")) {
+      return [
+        { label: "View Investments", action: () => navigate("/?tab=investments") },
+        { label: "Ask Copilot", action: () => scrollToElement("planwise-copilot") },
+      ];
+    }
+
+    if (lower.includes("goal") || lower.includes("save") || lower.includes("emergency")) {
+      return [
+        { label: "Create Goal", action: () => navigate("/?tab=goals") },
+        { label: "Learn More", action: () => scrollToElement("planwise-copilot") },
+      ];
+    }
+
+    if (lower.includes("spending") || lower.includes("budget") || lower.includes("expense") || lower.includes("cash flow")) {
+      return [
+        { label: "Analyze Spending", action: () => goToDashboardComponent("budgetAnalysis") },
+        { label: "View Budget", action: () => navigate("/?tab=budget") },
+      ];
+    }
+
+    return [
+      { label: "Ask Copilot", action: () => scrollToElement("planwise-copilot") },
+      { label: "View Dashboard", action: () => goToDashboardComponent("financialOverview") },
+    ];
+  };
+
   return (
     <div className="space-y-8">
       {/* AI-Powered Hero Section */}
-      <div className="text-center py-8 bg-gradient-to-r from-primary/5 via-accent/5 to-primary/5 rounded-lg border">
+      <div className="rounded-lg border border-border/80 bg-gradient-to-r from-primary/5 via-accent/5 to-primary/5 py-8 text-center shadow-sm dark:shadow-[0_18px_50px_-30px_hsl(var(--primary)/0.55)]">
         <div className="flex items-center justify-center gap-3 mb-4">
           <div className="w-12 h-12 bg-gradient-to-br from-primary to-accent rounded-full flex items-center justify-center">
             <Sparkles className="w-6 h-6 text-white" />
@@ -103,7 +213,7 @@ export const AIPoweredDashboard = () => {
           {uiConfig.dashboard.heroMessage}
         </h2>
 
-        <p className="text-muted-foreground text-lg mb-6">
+        <p className="mb-6 text-lg text-foreground/80">
           Your dashboard has been personalized based on your financial profile
         </p>
 
@@ -112,17 +222,34 @@ export const AIPoweredDashboard = () => {
           <div className="max-w-2xl mx-auto">
             <div className="flex items-center justify-center gap-2 mb-4">
               <Lightbulb className="w-5 h-5 text-yellow-500" />
-              <span className="font-semibold">Key Insights</span>
+              <span className="font-semibold text-foreground">Key Insights</span>
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
-              {uiConfig.dashboard.keyInsights.slice(0, expandedInsights ? undefined : 3).map((insight, index) => (
-                <Card key={index} className="bg-card/70 border-primary/20">
-                  <CardContent className="p-4">
-                    <p className="text-sm text-center">{insight}</p>
-                  </CardContent>
-                </Card>
-              ))}
+              {uiConfig.dashboard.keyInsights.slice(0, expandedInsights ? undefined : 3).map((insight, index) => {
+                const actions = getInsightActions(insight);
+
+                return (
+                  <Card key={index} className="border-primary/30 bg-card shadow-card dark:border-primary/35">
+                    <CardContent className="flex h-full flex-col gap-4 p-4">
+                      <p className="text-sm leading-relaxed text-foreground/90">{insight}</p>
+                      <div className="mt-auto flex flex-wrap gap-2">
+                        {actions.map((action, actionIndex) => (
+                          <Button
+                            key={action.label}
+                            type="button"
+                            variant={actionIndex === 0 ? "default" : "outline"}
+                            size="sm"
+                            onClick={action.action}
+                          >
+                            {action.label}
+                          </Button>
+                        ))}
+                      </div>
+                    </CardContent>
+                  </Card>
+                );
+              })}
             </div>
 
             {uiConfig.dashboard.keyInsights.length > 3 && (
@@ -138,38 +265,9 @@ export const AIPoweredDashboard = () => {
           </div>
         )}
 
-        {/* Recommended Actions */}
-        {uiConfig.dashboard.recommendedActions.length > 0 && (
-          <div className="max-w-4xl mx-auto">
-            <h3 className="text-xl font-semibold mb-4 flex items-center justify-center gap-2">
-              <Target className="w-5 h-5" />
-              Recommended Next Steps
-            </h3>
-
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-              {uiConfig.dashboard.recommendedActions.map((action, index) => (
-                <Card key={index} className="hover:shadow-md transition-shadow cursor-pointer group">
-                  <CardContent className="p-4">
-                    <div className="flex items-start justify-between mb-3">
-                      <Badge className={getPriorityColor(action.priority)}>
-                        {action.priority.toUpperCase()}
-                      </Badge>
-                      <ArrowRight className="w-4 h-4 text-muted-foreground group-hover:text-primary transition-colors" />
-                    </div>
-
-                    <h4 className="font-semibold mb-2">{action.title}</h4>
-                    <p className="text-sm text-muted-foreground mb-3">{action.description}</p>
-
-                    <Button size="sm" className="w-full" onClick={action.action}>
-                      Take Action
-                      <ArrowRight className="w-4 h-4 ml-2" />
-                    </Button>
-                  </CardContent>
-                </Card>
-              ))}
-            </div>
-          </div>
-        )}
+        <div id="planwise-copilot" className="mx-auto max-w-4xl scroll-mt-28">
+          <PlanWiseCopilot />
+        </div>
 
         {/* Refresh Analysis Button */}
         <div className="mt-6">
@@ -185,6 +283,68 @@ export const AIPoweredDashboard = () => {
           </Button>
         </div>
       </div>
+
+      <Card className="border-primary/25 shadow-card">
+        <CardHeader className="pb-3">
+          <CardTitle className="flex items-center justify-between text-lg">
+            <span className="flex items-center gap-2">
+              <ClipboardList className="h-5 w-5 text-primary" />
+              Next Best Actions
+            </span>
+            <Badge variant="secondary">
+              {completedActionIds.length}/{nextBestActions.length} done
+            </Badge>
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="grid gap-3 lg:grid-cols-3">
+            {nextBestActions.map((item) => {
+              const Icon = item.icon;
+              const isComplete = completedActionIds.includes(item.id);
+
+              return (
+                <div
+                  key={item.id}
+                  className={`rounded-lg border p-4 transition-all ${
+                    isComplete
+                      ? "border-emerald-500/30 bg-emerald-500/10"
+                      : "border-border/80 bg-muted/25 hover:border-primary/35 hover:bg-primary/5"
+                  }`}
+                >
+                  <div className="mb-3 flex items-start justify-between gap-3">
+                    <div className="flex items-center gap-2">
+                      <div className="rounded-md bg-primary/10 p-2">
+                        <Icon className="h-4 w-4 text-primary" />
+                      </div>
+                      <div>
+                        <h3 className="text-sm font-semibold text-foreground">{item.title}</h3>
+                        <Badge variant="outline" className="mt-1 text-[10px]">
+                          {item.priority}
+                        </Badge>
+                      </div>
+                    </div>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      className="h-8 w-8 p-0"
+                      onClick={() => toggleActionComplete(item.id)}
+                      aria-label={isComplete ? "Mark action incomplete" : "Mark action complete"}
+                    >
+                      <CheckCircle2 className={`h-4 w-4 ${isComplete ? "text-emerald-500" : "text-muted-foreground"}`} />
+                    </Button>
+                  </div>
+                  <p className="min-h-10 text-sm leading-relaxed text-foreground/80">{item.detail}</p>
+                  <Button type="button" size="sm" className="mt-4 w-full gap-2" onClick={item.action}>
+                    {item.cta}
+                    <ArrowRight className="h-3.5 w-3.5" />
+                  </Button>
+                </div>
+              );
+            })}
+          </div>
+        </CardContent>
+      </Card>
 
       {automationRun && (automationRun.executed.length > 0 || automationRun.pending.length > 0) && (
         <Alert className="border-emerald-200 bg-emerald-50 dark:border-emerald-900/50 dark:bg-emerald-950/20">
@@ -203,6 +363,104 @@ export const AIPoweredDashboard = () => {
         </Alert>
       )}
 
+      <Alert className="border-amber-200 bg-amber-50/70 dark:border-amber-900/50 dark:bg-amber-950/20">
+        <AlertTriangle className="h-4 w-4 text-amber-600" />
+        <AlertDescription className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+          <div className="grid gap-2 text-sm sm:grid-cols-2">
+            <span>
+              <strong>You exceeded food budget</strong>
+              {foodSpend > 0 ? `: $${foodSpend.toLocaleString(undefined, { maximumFractionDigits: 0 })} spent on food categories.` : ': review dining and grocery spending.'}
+            </span>
+            <span>
+              <strong>{highlightedGoal ? `${highlightedGoal.title} ${highlightedGoal.progress}% complete` : 'Goal 60% complete'}</strong>
+              {highlightedGoal ? ': keep momentum with one more contribution.' : ': add a goal to track progress.'}
+            </span>
+          </div>
+          <div className="flex flex-wrap gap-2">
+            <Button size="sm" variant="outline" onClick={() => navigate("/?tab=budget")}>
+              View Budget
+            </Button>
+            <Button size="sm" onClick={() => navigate("/?tab=goals")}>
+              View Goals
+            </Button>
+          </div>
+        </AlertDescription>
+      </Alert>
+
+      <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+        <Card>
+          <CardHeader className="pb-3">
+            <CardTitle className="flex items-center justify-between text-base">
+              <span className="flex items-center gap-2">
+                <Trophy className="h-4 w-4 text-primary" />
+                Progress
+              </span>
+              <Badge variant="secondary">Level {stats.level.level}</Badge>
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div>
+              <div className="mb-2 flex items-center justify-between text-sm">
+                <span className="font-medium">Progress to Level {stats.level.level + 1}: {levelProgress}%</span>
+                <span className="text-muted-foreground">
+                  {stats.level.currentXP} / {stats.level.xpToNext} XP
+                </span>
+              </div>
+              <Progress value={levelProgress} className="h-2" />
+              <p className="mt-2 text-xs text-muted-foreground">
+                Level {stats.level.level}: {stats.level.title}
+              </p>
+            </div>
+            {featuredReward && (
+              <div className="rounded-md border border-primary/20 bg-primary/5 p-3">
+                <div className="mb-2 flex items-center justify-between gap-3">
+                  <div className="flex items-center gap-2 text-sm font-semibold">
+                    <Star className="h-4 w-4 text-yellow-500" />
+                    Reward Challenge
+                  </div>
+                  <Badge variant="secondary">+{featuredReward.reward.xp} XP</Badge>
+                </div>
+                <p className="text-sm font-medium">{featuredReward.description}</p>
+                <div className="mt-3 space-y-1">
+                  <Progress value={(featuredReward.progress / featuredReward.maxProgress) * 100} className="h-2" />
+                  <div className="flex justify-between text-xs text-muted-foreground">
+                    <span>{featuredReward.progress} / {featuredReward.maxProgress}</span>
+                    <span>{Math.ceil((featuredReward.deadline.getTime() - Date.now()) / (1000 * 60 * 60 * 24))} days left</span>
+                  </div>
+                </div>
+              </div>
+            )}
+            <div className="grid grid-cols-3 gap-3 text-sm">
+              <div className="rounded-md border bg-muted/20 p-3">
+                <div className="flex items-center gap-1 text-muted-foreground">
+                  <Award className="h-3.5 w-3.5" />
+                  Earned
+                </div>
+                <div className="mt-1 font-semibold">
+                  {stats.achievements.filter((achievement) => achievement.unlocked).length}
+                </div>
+              </div>
+              <div className="rounded-md border bg-muted/20 p-3">
+                <div className="flex items-center gap-1 text-muted-foreground">
+                  <Flame className="h-3.5 w-3.5" />
+                  Streaks
+                </div>
+                  <div className="mt-1 font-semibold">{getActiveStreaks().length}</div>
+              </div>
+              <div className="rounded-md border bg-muted/20 p-3">
+                <div className="flex items-center gap-1 text-muted-foreground">
+                  <Target className="h-3.5 w-3.5" />
+                  Challenges
+                </div>
+                  <div className="mt-1 font-semibold">{activeChallenges.length}</div>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        <NotificationCenter variant="summary" enableAgentRefresh={false} />
+      </div>
+
       {/* AI-Prioritized Components */}
       <div className="space-y-8">
         {sortedComponents.map(([componentKey, config]) => {
@@ -211,7 +469,7 @@ export const AIPoweredDashboard = () => {
           if (!Component) return null;
 
           return (
-            <div key={componentKey} className="relative">
+            <div id={`dashboard-component-${componentKey}`} key={componentKey} className="relative scroll-mt-28">
               {/* Priority Indicator */}
               <div className="absolute -top-3 left-4 z-10">
                 <Badge

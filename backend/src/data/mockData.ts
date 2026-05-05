@@ -351,7 +351,7 @@ export const gamificationStats = {
   level: {
     level: 8,
     title: 'Financial Strategist',
-    currentXP: 2350,
+    currentXP: 420,
     xpToNext: 650,
     totalXP: 2350,
     perks: [
@@ -488,17 +488,17 @@ export const gamificationStats = {
   challenges: [
     {
       id: 'weekly-savings',
-      title: 'Weekly Savings Challenge',
-      description: 'Save $100 this week',
-      icon: '💪',
+      title: '3x Saver',
+      description: 'Save 3 times this week',
+      icon: '🎯',
       category: 'saving',
       difficulty: 'easy',
       reward: {
         xp: 100,
         badge: 'weekly-saver'
       },
-      progress: 65,
-      maxProgress: 100,
+      progress: 2,
+      maxProgress: 3,
       deadline: new Date(Date.now() + 3 * 86400000),
       isCompleted: false,
       isActive: true

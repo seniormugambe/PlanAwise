@@ -2,7 +2,7 @@
 
 ## Overview
 
-The PlanAwise Frontend has been fully integrated with AI Agents for real financial analysis and recommendations. This document explains the integration architecture and how to use the features.
+The PlanWise frontend has been fully integrated with AI agents for real financial analysis and recommendations. This document explains the integration architecture and how to use the features.
 
 ## Architecture
 

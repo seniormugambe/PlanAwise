@@ -1,4 +1,5 @@
 import { GeminiAI } from './geminiAgent.js';
+import { compactFinancialPrompt } from './promptUtils.js';
 import type { AgentResponse, FinancialContext, Transaction } from '../types.js';
 
 export class BudgetAgent {
@@ -9,9 +10,13 @@ export class BudgetAgent {
   }
 
   async analyzeSpending(context: FinancialContext, transactions: Transaction[] = [], apiKey?: string): Promise<AgentResponse> {
-    if (this.gemini && await this.gemini.isConnected(apiKey)) {
-      const prompt = `You are a financial budget analyst. Review the user's spending data and provide a concise summary of current spending, suggested monthly limits, and whether there is overspending.\n\nUser context: ${JSON.stringify(context)}\nTransactions: ${JSON.stringify(transactions)}`;
-      return this.gemini.ask(prompt, apiKey);
+    if (this.gemini) {
+      try {
+        const prompt = compactFinancialPrompt('Budget: summarize spending, monthly limit, overspending. Reply under 100 words.', context, transactions);
+        return await this.gemini.ask(prompt, apiKey, false);
+      } catch (error) {
+        console.warn('Budget AI request failed; using local analysis:', error);
+      }
     }
 
     const monthlyIncome = context.monthlyIncome || 0;
@@ -58,9 +63,13 @@ export class BudgetAgent {
   }
 
   async suggestLimits(context: FinancialContext, apiKey?: string): Promise<AgentResponse> {
-    if (this.gemini && await this.gemini.isConnected(apiKey)) {
-      const prompt = `You are a financial advisor. Based on the user's income and expenses, suggest a safe monthly spending limit and explain why.\n\nUser context: ${JSON.stringify(context)}`;
-      return this.gemini.ask(prompt, apiKey);
+    if (this.gemini) {
+      try {
+        const prompt = compactFinancialPrompt('Suggest one safe monthly spending limit and brief reason.', context);
+        return await this.gemini.ask(prompt, apiKey, false);
+      } catch (error) {
+        console.warn('Budget limit AI request failed; using local analysis:', error);
+      }
     }
 
     const monthlyIncome = context.monthlyIncome || 0;
@@ -82,9 +91,13 @@ export class BudgetAgent {
   }
 
   async alertOverspending(context: FinancialContext, transactions: Transaction[] = [], apiKey?: string): Promise<AgentResponse> {
-    if (this.gemini && await this.gemini.isConnected(apiKey)) {
-      const prompt = `You are a spending alert system. Determine if the user is overspending based on their expenses and send a brief alert if necessary.\n\nUser context: ${JSON.stringify(context)}\nTransactions: ${JSON.stringify(transactions)}`;
-      return this.gemini.ask(prompt, apiKey);
+    if (this.gemini) {
+      try {
+        const prompt = compactFinancialPrompt('Overspending check. Reply with alert only if needed; otherwise brief all-clear.', context, transactions);
+        return await this.gemini.ask(prompt, apiKey, false);
+      } catch (error) {
+        console.warn('Overspending AI request failed; using local analysis:', error);
+      }
     }
 
     const monthlyExpenses = context.monthlyExpenses || 0;

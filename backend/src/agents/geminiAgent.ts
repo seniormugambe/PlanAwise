@@ -2,7 +2,7 @@ import { VertexAI } from "@google-cloud/vertexai";
 import { globalCache } from '../cache/responseCache.js';
 
 type Category = "budgeting" | "saving" | "investing" | "debt" | "general";
-type AIProvider = "gemini" | "vertex";
+type AIProvider = "gemini" | "vertex" | "openai";
 type AIProviderMode = AIProvider | "auto";
 
 interface GeminiAIOptions {
@@ -14,6 +14,9 @@ interface GeminiAIOptions {
   vertexProject?: string;
   vertexLocation?: string;
   vertexModel?: string;
+  openaiApiKey?: string;
+  openaiModel?: string;
+  openaiApiEndpoint?: string;
 }
 
 interface VertexGenerationModel {
@@ -29,6 +32,40 @@ interface VertexGenerateContentResponse {
       parts?: Array<{ text?: string }>;
     };
   }>;
+}
+
+interface OpenAIResponse {
+  output_text?: string;
+  output?: Array<{
+    content?: Array<{
+      text?: string;
+      type?: string;
+    }>;
+  }>;
+}
+
+interface ProviderRequestErrorDetails {
+  provider: AIProvider;
+  status?: number;
+  code?: string;
+  message: string;
+  retryable: boolean;
+}
+
+export class ProviderRequestError extends Error {
+  provider: AIProvider;
+  status?: number;
+  code?: string;
+  retryable: boolean;
+
+  constructor(details: ProviderRequestErrorDetails) {
+    super(details.message);
+    this.name = "ProviderRequestError";
+    this.provider = details.provider;
+    this.status = details.status;
+    this.code = details.code;
+    this.retryable = details.retryable;
+  }
 }
 
 export interface AdviceResponse {
@@ -49,21 +86,40 @@ export class GeminiAI {
   private vertexLocation: string;
   private vertexModel: string;
   private geminiModel: string;
+  private openaiApiKey?: string;
+  private openaiModel: string;
+  private openaiApiEndpoint: string;
   private currentVertexModel: VertexGenerationModel | null = null;
+  private providerCooldownUntil = 0;
+  private providerCooldownReason?: string;
 
   constructor(options: GeminiAIOptions = {}) {
     this.defaultApiKey = options.geminiApiKey;
-    this.geminiModel = options.geminiModel || "gemini-flash-latest";
+    this.geminiModel = options.geminiModel || "gemini-2.5-flash-lite";
     this.vertexApiKey = options.vertexApiKey;
     this.vertexApiEndpoint = (options.vertexApiEndpoint || "https://aiplatform.googleapis.com").replace(/\/$/, "");
     this.vertexProject = options.vertexProject;
     this.vertexLocation = options.vertexLocation || "us-central1";
-    this.vertexModel = options.vertexModel || "gemini-2.5-flash";
+    this.vertexModel = options.vertexModel || "gemini-2.5-flash-lite";
+    this.openaiApiKey = options.openaiApiKey;
+    this.openaiModel = options.openaiModel || "gpt-5-nano";
+    this.openaiApiEndpoint = (options.openaiApiEndpoint || "https://api.openai.com").replace(/\/$/, "");
     this.providerMode = options.provider || "auto";
     this.provider = this.resolveProvider(this.providerMode);
   }
 
   async ask(prompt: string, apiKey?: string, includeReasoning = true): Promise<AdviceResponse> {
+    if (this.providerCooldownUntil > Date.now()) {
+      throw new ProviderRequestError({
+        provider: this.provider,
+        message: this.providerCooldownReason || `${this.provider} is temporarily unavailable`,
+        retryable: false,
+      });
+    }
+
+    if (this.provider === "openai" && !(this.openaiApiKey || apiKey)) {
+      throw new Error("Missing OpenAI API key");
+    }
     if (this.provider === "gemini" && !(apiKey || this.defaultApiKey)) {
       throw new Error("Missing Gemini API key");
     }
@@ -84,11 +140,11 @@ export class GeminiAI {
 
     try {
       const systemPrompt = this.createSystemPrompt();
-      let fullPrompt = `${systemPrompt}\n\n${prompt}`;
+      let fullPrompt = this.provider === "openai" ? prompt : `${systemPrompt}\n\n${prompt}`;
 
       // Add reasoning request to prompt
       if (includeReasoning) {
-        fullPrompt += '\n\nBefore providing your answer, briefly explain your reasoning in 1-2 sentences. Start with "REASONING:" and then provide your answer.';
+        fullPrompt += '\n\nOptional: start with "REASONING:" in one short sentence, then answer.';
       }
 
       const text = await this.generateText(fullPrompt, apiKey);
@@ -121,7 +177,10 @@ export class GeminiAI {
 
       return response_obj;
     } catch (error) {
-      console.error("AI backend error:", error);
+      if (error instanceof ProviderRequestError && !error.retryable) {
+        this.providerCooldownUntil = Date.now() + 5 * 60 * 1000;
+        this.providerCooldownReason = error.message;
+      }
       throw error;
     }
   }
@@ -132,6 +191,10 @@ export class GeminiAI {
 
   async isConnected(apiKey?: string): Promise<boolean> {
     try {
+      if (this.provider === "openai") {
+        return await this.validateOpenAIKey(apiKey);
+      }
+
       if (this.provider === "vertex") {
         const vertexConnected = this.vertexApiKey
           ? await this.validateVertexApiKey()
@@ -155,22 +218,48 @@ export class GeminiAI {
   }
 
   getStatus(): Record<string, unknown> {
-    return {
+    const status: Record<string, unknown> = {
       mode: this.providerMode,
       provider: this.provider,
-      model: this.provider === "vertex" ? this.vertexModel : this.geminiModel,
-      fallbackProvider: this.canFallbackToGemini() ? "gemini" : undefined,
-      vertex: {
+      model: this.provider === "openai"
+        ? this.openaiModel
+        : this.provider === "vertex"
+          ? this.vertexModel
+          : this.geminiModel,
+    };
+
+    if (this.provider === "openai" || this.providerMode === "auto") {
+      status.openai = {
+        apiKey: this.openaiApiKey ? "configured" : "missing",
+        apiEndpoint: this.openaiApiEndpoint,
+      };
+    }
+
+    if (this.provider === "vertex" || this.providerMode === "auto") {
+      status.vertex = {
         project: this.vertexProject ? "configured" : "missing",
         location: this.vertexLocation,
         apiKey: this.vertexApiKey ? "configured" : "missing",
         apiEndpoint: this.vertexApiEndpoint,
-      },
-      geminiApiKey: this.defaultApiKey ? "configured" : "missing",
-    };
+      };
+    }
+
+    if (this.provider === "gemini" || this.canFallbackToGemini()) {
+      status.geminiApiKey = this.defaultApiKey ? "configured" : "missing";
+    }
+
+    if (this.canFallbackToGemini()) {
+      status.fallbackProvider = "gemini";
+    }
+
+    return status;
   }
 
   private async generateText(prompt: string, apiKey?: string): Promise<string> {
+    if (this.provider === "openai") {
+      return this.generateTextWithOpenAI(prompt, apiKey);
+    }
+
     if (this.provider === "vertex") {
       try {
         if (this.vertexApiKey) {
@@ -201,6 +290,36 @@ export class GeminiAI {
     return this.generateTextWithGemini(prompt, apiKey);
   }
 
+  private async generateTextWithOpenAI(prompt: string, apiKey?: string): Promise<string> {
+    const key = this.openaiApiKey || apiKey;
+    if (!key) {
+      throw new Error("Missing OpenAI API key");
+    }
+
+    const response = await fetch(`${this.openaiApiEndpoint}/v1/responses`, {
+      method: "POST",
+      headers: {
+        "Authorization": `Bearer ${key}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        model: this.openaiModel,
+        instructions: this.createSystemPrompt(),
+        input: prompt,
+        max_output_tokens: 384,
+        store: false,
+      }),
+    });
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      const providerError = this.parseProviderError("openai", response.status, response.statusText, errorText);
+      throw providerError;
+    }
+
+    return this.extractOpenAIText(await response.json() as OpenAIResponse);
+  }
+
   private async generateTextWithGemini(prompt: string, apiKey?: string): Promise<string> {
     const key = apiKey || this.defaultApiKey;
     if (!key) {
@@ -215,18 +334,17 @@ export class GeminiAI {
         "X-goog-api-key": key,
       },
       body: JSON.stringify({
-        contents: [{ role: "user", parts: [{ text: prompt }] }],
+        contents: [{ parts: [{ text: prompt }] }],
         generationConfig: {
-          temperature: 0.7,
+          temperature: 0.4,
           topP: 0.8,
-          topK: 40,
-          maxOutputTokens: 1024,
+          maxOutputTokens: 384,
         },
       }),
     });
 
     if (!response.ok) {
-      throw new Error(`Gemini API request failed (${response.status} ${response.statusText}): ${await response.text()}`);
+      throw this.parseProviderError("gemini", response.status, response.statusText, await response.text());
     }
 
     return this.extractContentText(await response.json() as VertexGenerateContentResponse);
@@ -246,16 +364,15 @@ export class GeminiAI {
       body: JSON.stringify({
         contents: [{ role: "user", parts: [{ text: prompt }] }],
         generationConfig: {
-          temperature: 0.7,
+          temperature: 0.4,
           topP: 0.8,
-          topK: 40,
-          maxOutputTokens: 1024,
+          maxOutputTokens: 384,
         },
       }),
     });
 
     if (!response.ok) {
-      throw new Error(`Vertex AI API key request failed (${response.status} ${response.statusText}): ${await response.text()}`);
+      throw this.parseProviderError("vertex", response.status, response.statusText, await response.text());
     }
 
     return this.extractContentText(await response.json() as VertexGenerateContentResponse);
@@ -318,7 +435,7 @@ export class GeminiAI {
           "X-goog-api-key": key,
         },
         body: JSON.stringify({
-          contents: [{ role: "user", parts: [{ text: "connection check" }] }],
+          contents: [{ parts: [{ text: "connection check" }] }],
         }),
       });
 
@@ -329,6 +446,31 @@ export class GeminiAI {
       return response.ok;
     } catch (error) {
       console.warn("Gemini API key validation request failed:", error);
+      return false;
+    }
+  }
+
+  private async validateOpenAIKey(apiKey?: string): Promise<boolean> {
+    const key = this.openaiApiKey || apiKey;
+    if (!key) {
+      return false;
+    }
+
+    try {
+      const response = await fetch(`${this.openaiApiEndpoint}/v1/models/${encodeURIComponent(this.openaiModel)}`, {
+        method: "GET",
+        headers: {
+          "Authorization": `Bearer ${key}`,
+        },
+      });
+
+      if (!response.ok) {
+        console.warn(`OpenAI API key validation failed (${response.status} ${response.statusText})`);
+      }
+
+      return response.ok;
+    } catch (error) {
+      console.warn("OpenAI API key validation request failed:", error);
       return false;
     }
   }
@@ -350,10 +492,9 @@ export class GeminiAI {
     this.currentVertexModel = vertexAI.getGenerativeModel({
       model: this.vertexModel,
       generationConfig: {
-        temperature: 0.7,
+        temperature: 0.4,
         topP: 0.8,
-        topK: 40,
-        maxOutputTokens: 1024,
+        maxOutputTokens: 384,
       },
     });
   }
@@ -372,9 +513,28 @@ export class GeminiAI {
     return text;
   }
 
+  private extractOpenAIText(response: OpenAIResponse): string {
+    const text = response.output_text ||
+      response.output
+        ?.flatMap((item) => item.content || [])
+        .map((content) => content.text || "")
+        .join("")
+        .trim();
+
+    if (!text) {
+      throw new Error("OpenAI returned an empty response");
+    }
+
+    return text;
+  }
+
   private resolveProvider(provider?: GeminiAIOptions["provider"]): AIProvider {
-    if (provider === "vertex" || provider === "gemini") {
+    if (provider === "vertex" || provider === "gemini" || provider === "openai") {
       return provider;
+    }
+
+    if (this.openaiApiKey) {
+      return "openai";
     }
 
     if (this.vertexApiKey) {
@@ -390,6 +550,10 @@ export class GeminiAI {
 
   private getCacheNamespace(apiKey?: string): string {
     const usingHeaderGeminiKey = this.provider === "gemini" && Boolean(apiKey);
+    const usingHeaderOpenAIKey = this.provider === "openai" && !this.openaiApiKey && Boolean(apiKey);
+    if (usingHeaderOpenAIKey) {
+      return "openai-user-key";
+    }
     return usingHeaderGeminiKey ? "gemini-user-key" : `ai-${this.provider}`;
   }
 
@@ -401,8 +565,40 @@ export class GeminiAI {
     return error instanceof Error ? error.message : "unknown error";
   }
 
+  private parseProviderError(provider: AIProvider, status: number, statusText: string, body: string): ProviderRequestError {
+    let code: string | undefined;
+    let providerMessage = body;
+
+    try {
+      const parsed = JSON.parse(body) as { error?: { message?: string; code?: string; type?: string } };
+      providerMessage = parsed.error?.message || body;
+      code = parsed.error?.code || parsed.error?.type;
+    } catch {
+      providerMessage = body || statusText;
+    }
+
+    const quotaExceeded = status === 429 && (code === "insufficient_quota" || providerMessage.toLowerCase().includes("quota"));
+    const message = quotaExceeded
+      ? `${this.formatProviderName(provider)} quota is exhausted. Falling back to local advice until billing/quota is restored.`
+      : `${this.formatProviderName(provider)} API request failed (${status} ${statusText}): ${providerMessage}`;
+
+    return new ProviderRequestError({
+      provider,
+      status,
+      code,
+      message,
+      retryable: !quotaExceeded,
+    });
+  }
+
+  private formatProviderName(provider: AIProvider): string {
+    if (provider === "openai") return "OpenAI";
+    if (provider === "vertex") return "Vertex AI";
+    return "Gemini";
+  }
+
   private createSystemPrompt(): string {
-    return `You are Finley, a helpful financial AI assistant. You provide concise, practical, and category-aware answers for budgeting, saving, investing, debt, or general finance questions.`;
+    return `Finley: concise financial assistant. Answer in plain text under 120 words with practical steps.`;
   }
 
   private categorizeResponse(content: string): Category {

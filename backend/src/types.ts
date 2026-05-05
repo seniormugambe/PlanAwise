@@ -13,6 +13,10 @@ export interface FinancialContext {
   totalBalance?: number;
   riskTolerance?: 'conservative' | 'moderate' | 'aggressive';
   goals?: FinancialGoal[];
+  conversationHistory?: Array<{
+    role: 'user' | 'assistant';
+    content: string;
+  }>;
 }
 
 export interface Transaction {

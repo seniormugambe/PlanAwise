@@ -1,6 +1,6 @@
 # Google Cloud and Vertex AI Setup
 
-PlanAwise can run its AI agents through Vertex AI on Google Cloud. The browser never needs a Vertex key; the backend can use a Vertex AI API key for local testing, Google Cloud Application Default Credentials locally, or the Cloud Run service account in production.
+PlanWise can run its AI agents through Vertex AI on Google Cloud. The browser never needs a Vertex key; the backend can use a Vertex AI API key for local testing, Google Cloud Application Default Credentials locally, or the Cloud Run service account in production.
 
 ## Local Vertex AI With API Key
 
@@ -9,12 +9,12 @@ Google supports Vertex AI API keys for testing. Use an express mode API key or a
 Configure `backend/.env`:
 
 ```env
-PORT=4000
+PORT=5000
 AI_PROVIDER=vertex
 VERTEX_API_KEY=your_vertex_api_key_here
 VERTEX_API_ENDPOINT=https://aiplatform.googleapis.com
 GOOGLE_GENAI_USE_VERTEXAI=true
-VERTEX_AI_MODEL=gemini-2.5-flash
+VERTEX_AI_MODEL=gemini-2.5-flash-lite
 ```
 
 Then start the backend:
@@ -34,11 +34,11 @@ npm run dev
    ```
 3. Configure `backend/.env`:
    ```env
-   PORT=4000
+   PORT=5000
    AI_PROVIDER=vertex
    GOOGLE_CLOUD_PROJECT=your-google-cloud-project-id
    GOOGLE_CLOUD_LOCATION=us-central1
-   VERTEX_AI_MODEL=gemini-2.5-flash
+   VERTEX_AI_MODEL=gemini-2.5-flash-lite
    ```
 4. Start the backend:
    ```bash
@@ -57,7 +57,7 @@ Create an Artifact Registry repository once:
 gcloud artifacts repositories create planwise \
   --repository-format=docker \
   --location=us-central1 \
-  --description="PlanAwise containers"
+  --description="PlanWise containers"
 ```
 
 Deploy the backend with Cloud Build:
@@ -86,20 +86,23 @@ Then rebuild and deploy the frontend wherever you host the static Vite app.
 
 ## Useful Checks
 
-Backend health and provider status:
+Backend provider status:
 
 ```bash
 curl https://YOUR_BACKEND_URL/api/ai/status
 ```
 
+Use `?check=1` when you explicitly want a live provider validation call.
+
 Expected status includes:
 
 ```json
 {
-  "connected": true,
+  "connected": false,
+  "connectionChecked": false,
   "ai": {
     "provider": "vertex",
-    "model": "gemini-2.5-flash"
+    "model": "gemini-2.5-flash-lite"
   }
 }
 ```

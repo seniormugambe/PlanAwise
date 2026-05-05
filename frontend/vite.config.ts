@@ -7,6 +7,14 @@ export default defineConfig(async ({ mode }) => {
   const env = loadEnv(mode, process.cwd(), "");
   const enableComponentTagger = env.VITE_ENABLE_COMPONENT_TAGGER === "true";
   const plugins: PluginOption[] = [react()];
+  const apiProxyTarget = env.VITE_API_PROXY_TARGET || "http://localhost:5000";
+  const apiProxy = {
+    "/api": {
+      target: apiProxyTarget,
+      changeOrigin: true,
+      secure: false,
+    },
+  };
 
   if (mode === "development" && enableComponentTagger) {
     const { componentTagger } = await import("lovable-tagger");
@@ -17,17 +25,12 @@ export default defineConfig(async ({ mode }) => {
     server: {
       host: "::",
       port: 8080,
-      proxy: {
-        "/api": {
-          target: "http://localhost:4000",
-          changeOrigin: true,
-          secure: false,
-        },
-      },
+      proxy: apiProxy,
     },
     preview: {
       host: "0.0.0.0",
       port: process.env.PORT ? parseInt(process.env.PORT) : 4173,
+      proxy: apiProxy,
     },
     plugins,
     resolve: {
@@ -56,7 +59,6 @@ export default defineConfig(async ({ mode }) => {
         output: {
           manualChunks: {
             vendor: ["react", "react-dom"],
-            web3: ["wagmi", "viem", "@rainbow-me/rainbowkit"],
             ui: ["@radix-ui/react-dialog", "@radix-ui/react-select", "@radix-ui/react-tabs"],
           },
         },

@@ -1,8 +1,8 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useWallets } from '@/hooks/useWallets';
 import { useGoals } from '@/hooks/useGoals';
-import { useAIAgent } from '@/hooks/useAIAgent';
 import type { AutomationRunResult } from '@/services/aiAgentService';
+import { getMonthlyCashflow } from '@/lib/financialContext';
 
 export interface UIDecision {
   priority: 'high' | 'medium' | 'low';
@@ -56,7 +56,6 @@ export interface AIPoweredUI {
 export const useAIPoweredUI = () => {
   const { transactions, getWalletSummary } = useWallets();
   const { getGoalSummary } = useGoals();
-  const { processQuery, detectAndRunAutomation, isLoading } = useAIAgent();
 
   const [uiConfig, setUIConfig] = useState<AIPoweredUI | null>(null);
   const [isAnalyzing, setIsAnalyzing] = useState(true);
@@ -69,66 +68,17 @@ export const useAIPoweredUI = () => {
       const summary = getWalletSummary();
       const goalSummary = getGoalSummary();
 
-      // Calculate key metrics
-      const currentMonth = new Date().getMonth();
-      const currentYear = new Date().getFullYear();
-      const monthlyTransactions = transactions.filter(t =>
-        t.date.getMonth() === currentMonth && t.date.getFullYear() === currentYear
-      );
+      const { analysisTransactions, monthlyIncome, monthlyExpenses, savingsRate } = getMonthlyCashflow(transactions);
+      setAutomationRun(null);
 
-      const monthlyIncome = monthlyTransactions
-        .filter(t => t.amount > 0)
-        .reduce((sum, t) => sum + t.amount, 0);
-
-      const monthlyExpenses = Math.abs(monthlyTransactions
-        .filter(t => t.amount < 0)
-        .reduce((sum, t) => sum + t.amount, 0));
-
-      const savingsRate = monthlyIncome > 0 ? ((monthlyIncome - monthlyExpenses) / monthlyIncome) * 100 : 0;
-      const context = {
-        monthlyIncome,
-        monthlyExpenses,
-        currentSavings: summary.totalAssets,
-        totalBalance: summary.totalBalance,
-        goals: goalSummary.goals?.map(g => ({
-          title: g.title,
-          current: g.currentAmount,
-          target: g.targetAmount
-        }))
-      };
-
-      const automation = await detectAndRunAutomation(context, monthlyTransactions);
-      setAutomationRun(automation);
-
-      // AI-powered UI analysis
-      const uiAnalysisQuery = `
-        Based on this financial profile, determine the optimal UI layout and component priorities:
-        - Total Balance: $${summary.totalBalance}
-        - Monthly Income: $${monthlyIncome}
-        - Monthly Expenses: $${monthlyExpenses}
-        - Savings Rate: ${savingsRate.toFixed(1)}%
-        - Goals Progress: ${goalSummary.overallProgress.toFixed(1)}%
-        - Active Goals: ${goalSummary.totalGoals}
-        - Recent Transactions: ${monthlyTransactions.length}
-
-        Return a JSON object with UI recommendations including:
-        1. Primary dashboard focus (overview/budget-focus/savings-focus/investment-focus/goal-focus)
-        2. Component visibility and priority rankings
-        3. Personalized hero message
-        4. Key insights to highlight
-        5. Recommended actions for the user
-      `;
-
-      const analysis = await processQuery(uiAnalysisQuery, context);
-
-      // Parse AI response and create UI configuration
-      const uiConfig = parseUIAnalysis(analysis?.answer || '', {
+      // Build the dashboard configuration locally so rendering does not consume AI credits.
+      const uiConfig = parseUIAnalysis('', {
         summary,
         goalSummary,
         monthlyIncome,
         monthlyExpenses,
         savingsRate,
-        transactionCount: monthlyTransactions.length
+        transactionCount: analysisTransactions.length
       });
 
       setUIConfig(uiConfig);
@@ -139,7 +89,7 @@ export const useAIPoweredUI = () => {
     } finally {
       setIsAnalyzing(false);
     }
-  }, [transactions, getWalletSummary, getGoalSummary, processQuery, detectAndRunAutomation]);
+  }, [transactions, getWalletSummary, getGoalSummary]);
 
   const parseUIAnalysis = (analysis: string, data: any): AIPoweredUI => {
     try {
@@ -186,8 +136,8 @@ export const useAIPoweredUI = () => {
           position: 5
         },
         cashflowChart: { priority: 'medium' as const, visible: data.transactionCount > 5, position: 6 },
-        gamificationPanel: { priority: 'low' as const, visible: true, position: 7 },
-        notificationCenter: { priority: 'medium' as const, visible: true, position: 8 }
+        gamificationPanel: { priority: 'low' as const, visible: false, position: 7 },
+        notificationCenter: { priority: 'medium' as const, visible: false, position: 8 }
       };
 
       // Generate recommended actions
@@ -197,17 +147,18 @@ export const useAIPoweredUI = () => {
         dashboard: {
           layout: primaryFocus,
           heroMessage,
-          keyInsights: insights,
+          keyInsights: insights.length > 0 ? insights : generateLocalInsights(primaryFocus, data),
           recommendedActions
         },
         components,
         navigation: {
           primaryTabs: [
             { id: 'dashboard', label: 'Dashboard', priority: 1, visible: true },
-            { id: 'investments', label: 'Investments', priority: 2, visible: data.summary.totalBalance > 5000 },
-            { id: 'wallets', label: 'Wallets', priority: 3, visible: true },
-            { id: 'goals', label: 'Goals', priority: 4, visible: data.goalSummary.totalGoals > 0 },
-            { id: 'notifications', label: 'Activity', priority: 5, visible: true }
+            { id: 'budget', label: 'Budget', priority: 2, visible: true },
+            { id: 'investments', label: 'Investments', priority: 3, visible: true },
+            { id: 'wallets', label: 'Wallets', priority: 4, visible: true },
+            { id: 'goals', label: 'Goals', priority: 5, visible: true },
+            { id: 'notifications', label: 'Activity', priority: 6, visible: true }
           ].sort((a, b) => a.priority - b.priority),
           quickActions: [
             { label: 'Add Goal', icon: 'target', action: () => {}, visible: data.goalSummary.totalGoals < 3 },
@@ -252,6 +203,39 @@ export const useAIPoweredUI = () => {
       default:
         return `Welcome back! Your financial dashboard is ready with personalized insights.`;
     }
+  };
+
+  const generateLocalInsights = (focus: AIPoweredUI['dashboard']['layout'], data: any): string[] => {
+    const insights: string[] = [];
+    const surplus = data.monthlyIncome - data.monthlyExpenses;
+
+    if (data.monthlyIncome > 0) {
+      insights.push(
+        surplus >= 0
+          ? `Cash flow is positive by about $${surplus.toLocaleString()} for the analysis period.`
+          : `Spending is above income by about $${Math.abs(surplus).toLocaleString()} for the analysis period.`
+      );
+    } else {
+      insights.push('Connect income transactions so PlanWise can detect your cash flow trend.');
+    }
+
+    if (focus === 'investment-focus') {
+      insights.push('Your balance is large enough to review diversification and investment risk.');
+    } else if (focus === 'savings-focus') {
+      insights.push('Build emergency savings before increasing risk or optional spending.');
+    } else if (focus === 'budget-focus') {
+      insights.push('Analyze spending categories to find the next budget adjustment.');
+    } else {
+      insights.push('Set or update goals so surplus has a clear destination.');
+    }
+
+    if (data.goalSummary.totalGoals > 0) {
+      insights.push(`Your active goals are ${data.goalSummary.overallProgress.toFixed(0)}% funded overall.`);
+    } else {
+      insights.push('Create a financial goal to turn insights into a measurable next step.');
+    }
+
+    return insights;
   };
 
   const generateRecommendedActions = (focus: AIPoweredUI['dashboard']['layout'], data: any) => {
@@ -323,16 +307,17 @@ export const useAIPoweredUI = () => {
       investmentAdvice: { priority: 'low', visible: true, position: 4 },
       goalTracker: { priority: 'medium', visible: true, position: 5 },
       cashflowChart: { priority: 'medium', visible: true, position: 6 },
-      gamificationPanel: { priority: 'low', visible: true, position: 7 },
-      notificationCenter: { priority: 'medium', visible: true, position: 8 }
+      gamificationPanel: { priority: 'low', visible: false, position: 7 },
+      notificationCenter: { priority: 'medium', visible: false, position: 8 }
     },
     navigation: {
       primaryTabs: [
         { id: 'dashboard', label: 'Dashboard', priority: 1, visible: true },
-        { id: 'investments', label: 'Investments', priority: 2, visible: true },
-        { id: 'wallets', label: 'Wallets', priority: 3, visible: true },
-        { id: 'goals', label: 'Goals', priority: 4, visible: true },
-        { id: 'notifications', label: 'Activity', priority: 5, visible: true }
+        { id: 'budget', label: 'Budget', priority: 2, visible: true },
+        { id: 'investments', label: 'Investments', priority: 3, visible: true },
+        { id: 'wallets', label: 'Wallets', priority: 4, visible: true },
+        { id: 'goals', label: 'Goals', priority: 5, visible: true },
+        { id: 'notifications', label: 'Activity', priority: 6, visible: true }
       ],
       quickActions: []
     }
@@ -345,7 +330,7 @@ export const useAIPoweredUI = () => {
   return {
     uiConfig,
     automationRun,
-    isAnalyzing: isAnalyzing || isLoading,
+    isAnalyzing,
     refreshAnalysis: analyzeUserProfile
   };
 };

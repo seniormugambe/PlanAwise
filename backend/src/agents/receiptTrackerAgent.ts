@@ -1,4 +1,5 @@
 import { GeminiAI } from './geminiAgent.js';
+import { clipText } from './promptUtils.js';
 import type { ReceiptRecord } from '../types.js';
 
 export class ReceiptTrackerAgent {
@@ -10,7 +11,7 @@ export class ReceiptTrackerAgent {
   }
 
   async addReceipt(rawText: string, apiKey?: string): Promise<ReceiptRecord> {
-    const parsed = this.gemini && await this.gemini.isConnected(apiKey)
+    const parsed = this.gemini
       ? await this.parseReceiptWithAI(rawText, apiKey)
       : this.parseReceipt(rawText);
 
@@ -42,9 +43,9 @@ export class ReceiptTrackerAgent {
   }
 
   private async parseReceiptWithAI(text: string, apiKey?: string): Promise<ReceiptRecord> {
-    const prompt = `You are a receipt parser. Extract vendor name, date, total amount, and item list from this receipt text and reply with valid JSON including fields vendor, date, total, items (array of {description, amount}). Receipt:\n\n${text}`;
+    const prompt = `Extract receipt JSON only: vendor,date,total,items[{description,amount}]. Text:${clipText(text, 1600)}`;
     try {
-      const result = await this.gemini!.ask(prompt, apiKey);
+      const result = await this.gemini!.ask(prompt, apiKey, false);
       const jsonText = result.content.trim();
       const candidate = jsonText.includes('{') ? jsonText.substring(jsonText.indexOf('{')) : jsonText;
       const parsed = JSON.parse(candidate);

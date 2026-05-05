@@ -1,8 +1,18 @@
-# PlanAwise - AI-Powered Personal Finance Dashboard
+# PlanWise
 
-A modern, intelligent financial management platform with Web3 integration and AI-powered insights. Built with React, TypeScript, and powered by Google Gemini AI or Google Cloud Vertex AI.
+AI-powered personal finance dashboard for budgeting, savings goals, investment guidance, wallet management, and financial activity tracking. Built with React, TypeScript, Tailwind CSS, Express, and Google Gemini or Google Cloud Vertex AI.
 
-## 🌟 Key Features
+## Current Status
+
+- Production-ready frontend with responsive desktop and mobile navigation
+- Stable top navigation across refreshes and local UI analysis
+- Backend API for AI agents, data endpoints, caching, and automation
+- Web3 wallet support for common EVM networks
+- Local development defaults:
+  - Frontend: `http://localhost:8080`
+  - Backend: `http://localhost:5000`
+
+## Key Features
 
 ### AI-Powered Financial Intelligence
 - **Smart Budget Analysis** - Real-time spending analysis with AI recommendations
@@ -11,14 +21,14 @@ A modern, intelligent financial management platform with Web3 integration and AI
 - **Financial Chat** - Multi-agent AI assistant for financial questions
 
 ### Core Features
-- 💰 **Multi-Wallet Management** - Connect multiple blockchain networks (Ethereum, Polygon, Base, Celo, Arbitrum, Optimism)
-- 📊 **Financial Dashboard** - Real-time overview of balances, income, expenses
-- 🎯 **Goal Tracking** - Set and monitor financial goals
-- 🏆 **Gamification** - Earn XP, achievements, and level up
-- 📈 **Investment Hub** - Track and analyze investments
-- 🎨 **Dark/Light Theme** - Beautiful, responsive UI
+- **Multi-Wallet Management** - Connect multiple blockchain networks including Ethereum, Polygon, Base, Celo, Arbitrum, and Optimism
+- **Financial Dashboard** - Real-time overview of balances, income, and expenses
+- **Goal Tracking** - Set and monitor financial goals
+- **Gamification** - Earn XP, achievements, and levels
+- **Investment Hub** - Track and analyze investments
+- **Dark/Light Theme** - Responsive UI with theme persistence
 
-## 🤖 AI Agents Integration
+## AI Agents Integration
 
 The frontend is fully integrated with multiple specialized AI agents:
 
@@ -39,11 +49,11 @@ All components use real data from backend APIs:
 - ✅ Gamification progress
 - ✅ No mock data in production flows
 
-## 🚀 Quick Start
+## Quick Start
 
 ### Prerequisites
 - Node.js & npm (or Bun)
-- Backend server running on `http://localhost:4000`
+- Backend server running on `http://localhost:5000`
 - Gemini API key or a Google Cloud project with Vertex AI enabled
 
 ### Installation
@@ -63,21 +73,22 @@ bun install
 cp .env.example .env
 # Edit .env with your Gemini API key
 
-# Start frontend development server
-npm run dev
-
 # In another terminal, start the backend
 cd ../backend
 npm install
-npm start
+npm run dev
+
+# Start frontend development server
+cd ../frontend
+npm run dev
 ```
 
 ### Access the Application
-- Frontend: `http://localhost:5173`
-- Backend: `http://localhost:4000`
+- Frontend: `http://localhost:8080`
+- Backend: `http://localhost:5000`
 - Dashboard: View "AI Insights" tab for AI-powered recommendations
 
-## 📁 Project Structure
+## Project Structure
 
 ```
 PlanAwise/
@@ -111,7 +122,7 @@ PlanAwise/
 └── [configuration files]
 ```
 
-## 🔌 API Endpoints
+## API Endpoints
 
 ### AI Agents
 - `POST /api/ai/process` - Multi-agent processor
@@ -126,13 +137,13 @@ PlanAwise/
 - `GET /api/data/goals` - Goals data
 - `GET /api/data/gamification` - Gamification stats
 
-## 📚 Documentation
+## Documentation
 
 - **[AI Integration Guide](./AI_INTEGRATION_GUIDE.md)** - Detailed API documentation and architecture
 - **[Quick Start Guide](./QUICK_START_AI_AGENTS.md)** - Common tasks and examples
 - **[Integration Summary](./FRONTEND_AI_INTEGRATION_SUMMARY.md)** - What's been implemented
 
-## 🛠️ Development
+## Development
 
 ### Available Scripts
 
@@ -160,17 +171,17 @@ npm run type-check
 ```bash
 # From backend/
 
-# Start backend server
-npm start
-
 # Development with auto-reload
 npm run dev
+
+# Start compiled backend server after `npm run build`
+npm start
 
 # Build
 npm run build
 ```
 
-## 🔑 Configuration
+## Configuration
 
 ### Environment Variables
 
@@ -178,7 +189,8 @@ Create a `frontend/.env` file:
 
 ```env
 VITE_GEMINI_API_KEY=your_gemini_api_key_here
-VITE_API_URL=http://localhost:4000
+VITE_API_URL=
+VITE_API_PROXY_TARGET=http://localhost:5000
 ```
 
 For production Google Cloud setup, see [GOOGLE_CLOUD.md](./GOOGLE_CLOUD.md).
@@ -193,7 +205,7 @@ For production Google Cloud setup, see [GOOGLE_CLOUD.md](./GOOGLE_CLOUD.md).
    - Set via environment variable, or
    - Configure via localStorage in the app
 
-## 🌐 Web3 Support
+## Web3 Support
 
 Supported networks:
 - Ethereum Mainnet
@@ -204,7 +216,7 @@ Supported networks:
 - Optimism
 - Avalanche C-Chain
 
-## 🎨 UI Features
+## UI Features
 
 - Dark/Light mode toggle
 - Responsive design (Mobile, Tablet, Desktop)
@@ -212,7 +224,7 @@ Supported networks:
 - Real-time data updates
 - Accessible components (WCAG 2.1)
 
-## 📊 AI Insights Dashboard
+## AI Insights Dashboard
 
 The "AI Insights" tab provides:
 
@@ -231,7 +243,7 @@ The "AI Insights" tab provides:
    - Risk assessment
    - Portfolio recommendations
 
-## 🐛 Troubleshooting
+## Troubleshooting
 
 ### Backend Connection Issues
 ```
@@ -251,39 +263,39 @@ Solution:
 3. Check browser console for errors
 ```
 
-## 📈 Performance
+## Performance
 
 - Real-time data updates
 - Optimized API calls
 - Cached responses where appropriate
 - Sub-300ms response times for most requests
 
-## 🔐 Security
+## Security
 
 - API keys stored in localStorage or environment
 - CORS enabled for local development
 - Input validation on all API calls
 - No sensitive data in logs
 
-## 🤝 Contributing
+## Contributing
 
 1. Create a feature branch
 2. Make your changes
 3. Test thoroughly
 4. Submit a pull request
 
-## 📄 License
+## License
 
 [Specify your license here]
 
-## 🙏 Acknowledgments
+## Acknowledgments
 
 - Built with React, TypeScript, Tailwind CSS
 - AI powered by Google Gemini
 - Web3 integration via wagmi and ethers.js
 - UI components from shadcn/ui
 
-## 📞 Support
+## Support
 
 For issues or questions:
 1. Check the documentation files
@@ -293,28 +305,5 @@ For issues or questions:
 
 ---
 
-**Last Updated**: May 1, 2026  
-**Status**: Production Ready ✅
-- Edit files directly within the Codespace and commit and push your changes once you're done.
-
-## What technologies are used for this project?
-
-This project is built with:
-
-- Vite
-- TypeScript
-- React
-- shadcn-ui
-- Tailwind CSS
-
-## How can I deploy this project?
-
-Simply open [Lovable](https://lovable.dev/projects/ffff70fe-95bd-449d-80ae-013712698cc9) and click on Share -> Publish.
-
-## Can I connect a custom domain to my Lovable project?
-
-Yes, you can!
-
-To connect a domain, navigate to Project > Settings > Domains and click Connect Domain.
-
-Read more here: [Setting up a custom domain](https://docs.lovable.dev/tips-tricks/custom-domain#step-by-step-guide)
+**Last Updated**: May 5, 2026  
+**Status**: Production Ready

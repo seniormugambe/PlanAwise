@@ -121,7 +121,7 @@ export const SavingsRecommendations = () => {
 
   return (
     <div className="space-y-6">
-      <Card className="border-l-4 border-l-green-500">
+      <Card className="border-l-4 border-l-green-500 shadow-card">
         <CardHeader>
           <div className="flex items-center justify-between">
             <div>
@@ -129,7 +129,7 @@ export const SavingsRecommendations = () => {
                 <PiggyBank className="w-5 h-5 text-green-600" />
                 Savings Recommendations
               </CardTitle>
-              <CardDescription>
+              <CardDescription className="text-foreground/75">
                 Maximize your financial growth with AI-powered savings strategies
               </CardDescription>
               <div className="mt-2">
@@ -186,17 +186,17 @@ export const SavingsRecommendations = () => {
           {/* AI Recommendation */}
           {recommendation && (
             <div className="space-y-4">
-              <div className="p-4 bg-warning/10 border border-warning/20 rounded-lg">
+              <div className="rounded-lg border border-warning/30 bg-warning/10 p-4 shadow-sm dark:border-warning/40">
                 <div className="flex gap-3">
                   <Lightbulb className="w-5 h-5 text-warning flex-shrink-0 mt-1" />
                   <div className="flex-1">
                     <h4 className="font-semibold text-foreground mb-2">Savings Agent Recommendation</h4>
-                    <p className="text-sm text-muted-foreground leading-relaxed mb-4">
+                    <p className="mb-4 text-sm leading-relaxed text-foreground/85">
                       {recommendation.advice.substring(0, 400)}
                     </p>
 
                     {/* Savings Goal Card */}
-                    <div className="bg-card/80 p-3 rounded-lg border border-warning/20">
+                    <div className="rounded-lg border border-warning/30 bg-card p-3 shadow-sm">
                       <div className="flex items-center justify-between mb-3">
                         <span className="text-sm font-semibold">Suggested Monthly Savings</span>
                         <Badge variant="secondary">
@@ -207,7 +207,7 @@ export const SavingsRecommendations = () => {
                         value={Math.min(100, (recommendation.suggestedAmount / availableToSave) * 100)}
                         className="h-2 mb-2"
                       />
-                      <div className="grid grid-cols-2 gap-2 text-xs text-muted-foreground">
+                      <div className="grid grid-cols-2 gap-2 text-xs text-foreground/75">
                         <div>
                           <p className="font-semibold text-foreground">
                             ${recommendation.potentialSavings.toLocaleString()}

@@ -1,4 +1,5 @@
 import { GeminiAI } from './geminiAgent.js';
+import { summarizeContext } from './promptUtils.js';
 import type { AgentResponse, FinancialContext } from '../types.js';
 
 export class FinancialAdvisorAgent {
@@ -18,8 +19,11 @@ export class FinancialAdvisorAgent {
     }
 
     const fullQuestion = context
-      ? `${question}\n\nUser context: ${JSON.stringify(context)}`
-      : question;
+      ? JSON.stringify({
+          question: question.slice(0, 600),
+          context: summarizeContext(context),
+        })
+      : question.slice(0, 600);
 
     try {
       const response = await this.ai.getAdvice(fullQuestion, apiKey);

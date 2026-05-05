@@ -1,4 +1,5 @@
 import { GeminiAI } from './geminiAgent.js';
+import { compactFinancialPrompt } from './promptUtils.js';
 import type { AgentResponse, FinancialContext, Transaction, SavingsRecommendation } from '../types.js';
 
 export class SavingsAgent {
@@ -9,9 +10,13 @@ export class SavingsAgent {
   }
 
   async detectExtraMoney(context: FinancialContext, transactions: Transaction[] = [], apiKey?: string): Promise<AgentResponse> {
-    if (this.gemini && await this.gemini.isConnected(apiKey)) {
-      const prompt = `You are a savings coach. Analyze the user's income and expense transactions to determine how much extra money is available for savings, and explain whether they can safely save more this month.\n\nUser context: ${JSON.stringify(context)}\nTransactions: ${JSON.stringify(transactions)}`;
-      return this.gemini.ask(prompt, apiKey);
+    if (this.gemini) {
+      try {
+        const prompt = compactFinancialPrompt('Find safe extra savings amount this month. Reply under 100 words.', context, transactions);
+        return await this.gemini.ask(prompt, apiKey, false);
+      } catch (error) {
+        console.warn('Savings AI request failed; using local analysis:', error);
+      }
     }
 
     const monthlyIncome = context.monthlyIncome || 0;
@@ -38,9 +43,13 @@ export class SavingsAgent {
   }
 
   async suggestOrAutoSave(context: FinancialContext, transactions: Transaction[] = [], enableAutoSave = false, apiKey?: string): Promise<AgentResponse> {
-    if (this.gemini && await this.gemini.isConnected(apiKey)) {
-      const prompt = `You are a savings advisor. Based on the user's finances, suggest an amount to save this period and optionally explain how to automate it. Return a recommendation in plain text.\n\nUser context: ${JSON.stringify(context)}\nTransactions: ${JSON.stringify(transactions)}\nAuto save enabled: ${enableAutoSave}`;
-      return this.gemini.ask(prompt, apiKey);
+    if (this.gemini) {
+      try {
+        const prompt = compactFinancialPrompt('Suggest savings amount. If autoSave true, mention user approval is required. Reply under 100 words.', context, transactions, { autoSave: enableAutoSave });
+        return await this.gemini.ask(prompt, apiKey, false);
+      } catch (error) {
+        console.warn('Savings recommendation AI request failed; using local analysis:', error);
+      }
     }
 
     const income = context.monthlyIncome || 0;

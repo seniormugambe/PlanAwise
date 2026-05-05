@@ -89,7 +89,7 @@ Premium fintech aesthetic with beautiful light and dark themes
     --background: 222 47% 11%;
     --foreground: 210 40% 98%;
 
-    --card: 222 47% 11%;
+    --card: 217 32% 14%;
     --card-foreground: 210 40% 98%;
 
     --popover: 222 47% 11%;
@@ -105,7 +105,7 @@ Premium fintech aesthetic with beautiful light and dark themes
     --secondary-foreground: 210 40% 98%;
 
     --muted: 217 32% 17%;
-    --muted-foreground: 215 20% 65%;
+    --muted-foreground: 215 24% 74%;
 
     /* Accent: Bright emerald for dark mode */
     --accent: 158 64% 62%;
@@ -124,8 +124,8 @@ Premium fintech aesthetic with beautiful light and dark themes
     --destructive: 0 72% 61%;
     --destructive-foreground: 222 47% 11%;
 
-    --border: 217 32% 17%;
-    --input: 217 32% 17%;
+    --border: 217 28% 25%;
+    --input: 217 28% 25%;
     --ring: 217 91% 70%;
 
     /* Finance-specific dark tokens */
@@ -144,7 +144,7 @@ Premium fintech aesthetic with beautiful light and dark themes
     
     /* Dark mode shadows with glow effects */
     --shadow-finance: 0 8px 32px -8px hsl(217 91% 70% / 0.3);
-    --shadow-card: 0 4px 16px -4px hsl(0 0% 0% / 0.2);
+    --shadow-card: 0 10px 28px -14px hsl(0 0% 0% / 0.65);
     --shadow-success: 0 8px 32px -8px hsl(142 76% 46% / 0.3);
     --shadow-elevated: 0 12px 48px -12px hsl(0 0% 0% / 0.3);
 

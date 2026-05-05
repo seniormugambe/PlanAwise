@@ -1,7 +1,7 @@
 substitutions:
   _REGION: us-central1
   _SERVICE_NAME: planwise-ai-backend
-  _VERTEX_AI_MODEL: gemini-2.5-flash
+  _VERTEX_AI_MODEL: gemini-2.5-flash-lite
 
 steps:
   - name: gcr.io/cloud-builders/docker

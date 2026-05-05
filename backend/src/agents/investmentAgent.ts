@@ -1,17 +1,29 @@
 import { GeminiAI } from './geminiAgent.js';
+import { compactFinancialPrompt } from './promptUtils.js';
 import type { AgentResponse, FinancialContext, Transaction } from '../types.js';
 
 export class InvestmentAgent {
   private gemini?: GeminiAI;
+  private lastFallbackWarningAt = 0;
+  private lastFallbackWarning = "";
 
   constructor(gemini?: GeminiAI) {
     this.gemini = gemini;
   }
 
   async getInvestmentAdvice(context: FinancialContext, transactions: Transaction[] = [], question?: string, apiKey?: string): Promise<AgentResponse> {
-    if (this.gemini && await this.gemini.isConnected(apiKey)) {
-      const prompt = `You are an investment advisor. Provide a recommendation based on the user's financial profile, risk tolerance, and current cash flow.\n\nUser context: ${JSON.stringify(context)}\nTransactions: ${JSON.stringify(transactions)}\nQuestion: ${question || 'Give general investment guidance.'}`;
-      return this.gemini.ask(prompt, apiKey);
+    let aiError: string | undefined;
+
+    if (this.gemini) {
+      try {
+        const prompt = compactFinancialPrompt('Investment advice based on risk, cash flow, and question. Reply under 120 words.', context, transactions, {
+          question: question?.slice(0, 500) || 'General investment guidance.',
+        });
+        return await this.gemini.ask(prompt, apiKey, false);
+      } catch (error) {
+        aiError = error instanceof Error ? error.message : "AI investment advice request failed";
+        this.warnFallback(aiError);
+      }
     }
 
     const risk = context.riskTolerance || 'moderate';
@@ -46,7 +58,10 @@ export class InvestmentAgent {
       confidence: 0.89,
       meta: {
         risk,
+        riskLevel: risk === 'conservative' ? 'low' : risk === 'aggressive' ? 'high' : 'medium',
         surplus,
+        fallback: true,
+        aiError,
         recommendedNextSteps: [
           'Maintain an emergency fund before increasing equity exposure',
           'Use low-cost diversified funds',
@@ -54,5 +69,16 @@ export class InvestmentAgent {
         ],
       },
     };
+  }
+
+  private warnFallback(message: string): void {
+    const now = Date.now();
+    if (message === this.lastFallbackWarning && now - this.lastFallbackWarningAt < 5 * 60 * 1000) {
+      return;
+    }
+
+    this.lastFallbackWarning = message;
+    this.lastFallbackWarningAt = now;
+    console.warn("Investment AI unavailable; using local fallback advice:", message);
   }
 }

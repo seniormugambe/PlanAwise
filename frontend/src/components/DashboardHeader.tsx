@@ -15,13 +15,15 @@ import {
   Sparkles,
   Target,
   PiggyBank,
-  BarChart3
+  BarChart3,
+  PieChart
 } from "lucide-react";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import { XPIndicator } from "@/components/XPIndicator";
 import { DeferredWeb3Status } from "@/components/DeferredWeb3Status";
 import { AddGoalDialog } from "@/components/AddGoalDialog";
 import { useNavigate, useLocation } from "react-router-dom";
+import { cn } from "@/lib/utils";
 
 const navigationItems = [
   {
@@ -29,6 +31,12 @@ const navigationItems = [
     label: "Dashboard",
     icon: Home,
     description: "Overview & insights"
+  },
+  {
+    id: "budget",
+    label: "Budget",
+    icon: PieChart,
+    description: "Spending plan"
   },
   {
     id: "investments",
@@ -61,7 +69,22 @@ export const DashboardHeader = () => {
   const location = useLocation();
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
-  const currentTab = location.pathname === "/wallets" ? "wallets" : "dashboard";
+  const visibleTabIds = ["dashboard", "budget", "investments", "goals", "notifications"];
+  const activeSearchTab = new URLSearchParams(location.search).get("tab") || "dashboard";
+  const currentTab = location.pathname === "/wallets"
+    ? "wallets"
+    : visibleTabIds.includes(activeSearchTab)
+      ? activeSearchTab
+      : "dashboard";
+
+  const navigateToTab = (tabId: string) => {
+    if (tabId === "wallets") {
+      navigate("/wallets");
+      return;
+    }
+
+    navigate(tabId === "dashboard" ? "/" : `/?tab=${tabId}`);
+  };
 
   return (
     <div className="sticky top-0 z-50 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 border-b">
@@ -74,7 +97,7 @@ export const DashboardHeader = () => {
                 <Sparkles className="w-4 h-4 text-white" />
               </div>
               <div>
-                <h1 className="text-xl font-bold text-foreground">PlanAwise</h1>
+                <h1 className="text-xl font-bold text-foreground">PlanWise</h1>
                 <p className="text-xs text-muted-foreground hidden sm:block">Smart Finance, Smarter You</p>
               </div>
             </div>
@@ -103,7 +126,7 @@ export const DashboardHeader = () => {
                       <Sparkles className="w-5 h-5 text-white" />
                     </div>
                     <div>
-                      <h2 className="text-lg font-bold">PlanAwise</h2>
+                      <h2 className="text-lg font-bold">PlanWise</h2>
                       <p className="text-sm text-muted-foreground">Your AI Finance Assistant</p>
                     </div>
                   </div>
@@ -116,19 +139,27 @@ export const DashboardHeader = () => {
                         <Button
                           key={item.id}
                           variant={isActive ? "default" : "ghost"}
-                          className="w-full justify-start h-auto p-3"
+                          className={cn(
+                            "w-full justify-start h-auto p-3 border transition-all",
+                            isActive
+                              ? "border-primary/30 bg-primary text-primary-foreground shadow-sm"
+                              : "border-transparent hover:border-border hover:bg-muted"
+                          )}
                           onClick={() => {
                             setIsMobileMenuOpen(false);
-                            if (item.id === "wallets") {
-                              navigate("/wallets");
-                            }
+                            navigateToTab(item.id);
                           }}
                         >
                           <div className="flex items-center gap-3 w-full">
                             <Icon className="w-5 h-5 flex-shrink-0" />
-                            <div className="text-left">
-                              <div className="font-medium">{item.label}</div>
-                              <div className="text-xs text-muted-foreground">{item.description}</div>
+                            <div className="min-w-0 flex-1 text-left">
+                              <div className="flex items-center gap-2 font-medium">
+                                {item.label}
+                                {isActive && <span className="h-1.5 w-1.5 rounded-full bg-primary-foreground" />}
+                              </div>
+                              <div className={cn("text-xs", isActive ? "text-primary-foreground/75" : "text-muted-foreground")}>
+                                {item.description}
+                              </div>
                             </div>
                           </div>
                         </Button>
@@ -164,22 +195,24 @@ export const DashboardHeader = () => {
         {/* Desktop Navigation */}
         <div className="hidden md:block">
           <Tabs value={currentTab} className="w-full">
-            <TabsList className="grid w-full grid-cols-5 h-12">
+            <TabsList className="grid h-12 w-full auto-cols-fr grid-flow-col">
               {navigationItems.map((item) => {
                 const Icon = item.icon;
+                const isActive = currentTab === item.id;
                 return (
                   <TabsTrigger
                     key={item.id}
                     value={item.id}
-                    className="flex items-center gap-2 h-10"
-                    onClick={() => {
-                      if (item.id === "wallets") {
-                        navigate("/wallets");
-                      }
-                    }}
+                    className={cn(
+                      "relative flex h-10 items-center gap-2 rounded-md border border-transparent px-3 font-medium text-muted-foreground transition-all",
+                      "hover:border-border hover:bg-background/70 hover:text-foreground",
+                      "data-[state=active]:border-primary/30 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-md"
+                    )}
+                    onClick={() => navigateToTab(item.id)}
                   >
-                    <Icon className="w-4 h-4" />
+                    <Icon className={cn("w-4 h-4", isActive ? "text-primary-foreground" : "text-muted-foreground")} />
                     <span className="hidden lg:inline">{item.label}</span>
+                    {isActive && <span className="absolute bottom-1 h-1 w-5 rounded-full bg-primary-foreground/80" />}
                   </TabsTrigger>
                 );
               })}
