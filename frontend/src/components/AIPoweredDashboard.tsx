@@ -225,7 +225,7 @@ export const AIPoweredDashboard = () => {
               <span className="font-semibold text-foreground">Key Insights</span>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4 mb-6">
               {uiConfig.dashboard.keyInsights.slice(0, expandedInsights ? undefined : 3).map((insight, index) => {
                 const actions = getInsightActions(insight);
 
@@ -297,7 +297,7 @@ export const AIPoweredDashboard = () => {
           </CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="grid gap-3 lg:grid-cols-3">
+          <div className="grid gap-3 lg:grid-cols-2 xl:grid-cols-3">
             {nextBestActions.map((item) => {
               const Icon = item.icon;
               const isComplete = completedActionIds.includes(item.id);
@@ -462,7 +462,7 @@ export const AIPoweredDashboard = () => {
       </div>
 
       {/* AI-Prioritized Components */}
-      <div className="space-y-8">
+      <div className="grid gap-6 lg:grid-cols-2">
         {sortedComponents.map(([componentKey, config]) => {
           const Component = componentMap[componentKey as keyof typeof componentMap];
 

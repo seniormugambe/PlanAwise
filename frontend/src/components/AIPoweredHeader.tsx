@@ -2,8 +2,7 @@ import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
+import { Drawer, DrawerClose, DrawerContent, DrawerTrigger, DrawerHeader, DrawerFooter } from "@/components/ui/drawer";
 import {
   Menu,
   Home,
@@ -19,7 +18,8 @@ import {
   BarChart3,
   Lightbulb,
   PieChart,
-  Zap
+  Zap,
+  X
 } from "lucide-react";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import { XPIndicator } from "@/components/XPIndicator";
@@ -157,7 +157,7 @@ export const AIPoweredHeader = () => {
     <div className="sticky top-0 z-50 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 border-b">
       <div className="container mx-auto px-4 py-4">
         {/* Top Header */}
-        <div className="flex items-center justify-between mb-4">
+        <div className="flex items-center justify-between mb-4 gap-3">
           <div className="flex items-center gap-3">
             <div className="flex items-center gap-2">
               <div className="w-8 h-8 bg-gradient-to-br from-primary to-accent rounded-lg flex items-center justify-center">
@@ -189,83 +189,64 @@ export const AIPoweredHeader = () => {
             </div>
           </div>
 
-          {/* Desktop Actions */}
-          <div className="hidden md:flex items-center gap-2">
-            <XPIndicator />
-            <NotificationBell />
-            <ThemeToggle />
-
-            {/* AI-Powered Quick Actions */}
-            {quickActions.map((action, index) => {
-              const Icon = iconMap[action.icon as keyof typeof iconMap] || Lightbulb;
-              return (
-                <Button
-                  key={index}
-                  variant="outline"
-                  size="sm"
-                  onClick={() => runQuickAction(action.label, action.action)}
-                  className="gap-2"
-                >
-                  <Icon className="w-4 h-4" />
-                  {action.label}
-                </Button>
-              );
-            })}
-
-            <AIPoweredAddGoalDialog />
-          </div>
-
-          {/* Mobile Menu Trigger */}
-          <div className="md:hidden">
-            <Sheet open={isMobileMenuOpen} onOpenChange={setIsMobileMenuOpen}>
-              <SheetTrigger asChild>
-                <Button variant="outline" size="sm" className="relative">
+          <div className="flex items-center gap-2">
+            <Drawer open={isMobileMenuOpen} onOpenChange={setIsMobileMenuOpen}>
+              <DrawerTrigger asChild>
+                <Button variant="outline" size="sm" className="gap-2">
                   <Menu className="w-4 h-4" />
-                  {quickActions.length > 0 && (
-                    <Badge className="absolute -top-2 -right-2 w-5 h-5 p-0 flex items-center justify-center text-xs">
-                      {quickActions.length}
-                    </Badge>
-                  )}
+                  <span className="hidden md:inline">Navigation</span>
                 </Button>
-              </SheetTrigger>
-              <SheetContent side="right" className="w-80">
-                <div className="flex flex-col h-full">
-                  <div className="flex items-center gap-3 mb-6">
-                    <div className="w-10 h-10 bg-gradient-to-br from-primary to-accent rounded-lg flex items-center justify-center">
+              </DrawerTrigger>
+
+              <DrawerContent className="w-full max-w-sm">
+                <DrawerHeader className="flex items-start justify-between gap-4 px-5 pt-5 pb-4">
+                  <div className="flex items-center gap-3">
+                    <div className="w-11 h-11 bg-gradient-to-br from-primary to-accent rounded-2xl flex items-center justify-center shadow-lg shadow-primary/10">
                       <Sparkles className="w-5 h-5 text-white" />
                     </div>
                     <div>
-                      <h2 className="text-lg font-bold">PlanWise</h2>
+                      <h2 className="text-lg font-semibold tracking-tight text-foreground">PlanWise</h2>
                       <p className="text-sm text-muted-foreground">
                         {isAnalyzing ? 'AI Analyzing your profile...' : 'AI-Powered Finance Assistant'}
                       </p>
                     </div>
                   </div>
+                  <DrawerClose asChild>
+                    <Button variant="ghost" size="icon" className="inline-flex h-9 w-9 rounded-full text-muted-foreground hover:text-foreground hover:bg-muted/70">
+                      <X className="h-4 w-4" />
+                      <span className="sr-only">Close navigation</span>
+                    </Button>
+                  </DrawerClose>
+                </DrawerHeader>
+                <div className="h-px bg-border/70" />
 
-                  {/* AI Quick Actions */}
+                <div className="flex-1 overflow-y-auto px-5 py-4">
                   {quickActions.length > 0 && (
-                    <div className="mb-6">
-                      <h3 className="font-semibold mb-3 flex items-center gap-2">
+                    <div className="mb-6 rounded-[22px] border border-border/70 bg-muted/5 p-4 shadow-sm">
+                      <div className="mb-3 flex items-center gap-2 text-sm font-semibold text-foreground">
                         <Zap className="w-4 h-4 text-yellow-500" />
                         AI Recommendations
-                      </h3>
+                      </div>
                       <div className="space-y-2">
                         {quickActions.map((action, index) => {
                           const Icon = iconMap[action.icon as keyof typeof iconMap] || Lightbulb;
                           return (
                             <Button
                               key={index}
-                              variant="outline"
-                              className="w-full justify-start h-auto p-3"
+                              variant="secondary"
+                              className="w-full justify-start rounded-3xl border border-border/60 bg-background/90 px-4 py-3 text-left shadow-sm transition hover:-translate-y-0.5 hover:shadow-md"
                               onClick={() => {
                                 runQuickAction(action.label, action.action);
                                 setIsMobileMenuOpen(false);
                               }}
                             >
                               <div className="flex items-center gap-3 w-full">
-                                <Icon className="w-5 h-5 flex-shrink-0" />
-                                <div className="text-left">
-                                  <div className="font-medium">{action.label}</div>
+                                <Icon className="w-5 h-5 flex-shrink-0 text-primary" />
+                                <div>
+                                  <div className="font-medium text-foreground">{action.label}</div>
+                                  {action.description && (
+                                    <div className="text-xs text-muted-foreground">{action.description}</div>
+                                  )}
                                 </div>
                               </div>
                             </Button>
@@ -275,8 +256,8 @@ export const AIPoweredHeader = () => {
                     </div>
                   )}
 
-                  <div className="flex-1 space-y-2">
-                    <h3 className="font-semibold mb-3">Navigation</h3>
+                  <div className="space-y-2">
+                    <h3 className="font-semibold mb-3 text-sm uppercase tracking-[0.24em] text-muted-foreground">Quick links</h3>
                     {navigationItems.filter(item => item.visible).map((item) => {
                       const Icon = iconMap[item.icon as keyof typeof iconMap] || Home;
                       const isActive = currentTab === item.id;
@@ -285,10 +266,10 @@ export const AIPoweredHeader = () => {
                           key={item.id}
                           variant={isActive ? "default" : "ghost"}
                           className={cn(
-                            "w-full justify-start h-auto p-3 border transition-all",
+                            "w-full justify-start h-auto rounded-3xl border px-4 py-3 text-left transition-all duration-200",
                             isActive
-                              ? "border-primary/30 bg-primary text-primary-foreground shadow-sm"
-                              : "border-transparent hover:border-border hover:bg-muted"
+                              ? "border-primary/20 bg-primary/10 text-foreground shadow-sm"
+                              : "border-transparent hover:border-border hover:bg-muted/70"
                           )}
                           onClick={() => {
                             setIsMobileMenuOpen(false);
@@ -296,11 +277,11 @@ export const AIPoweredHeader = () => {
                           }}
                         >
                           <div className="flex items-center gap-3 w-full">
-                            <Icon className="w-5 h-5 flex-shrink-0" />
-                            <div className="min-w-0 flex-1 text-left">
-                              <div className="flex items-center gap-2 font-medium">
+                            <Icon className={cn("w-5 h-5 flex-shrink-0", isActive ? "text-primary" : "text-muted-foreground")} />
+                            <div className="min-w-0 flex-1">
+                              <div className="flex items-center gap-2 text-sm font-medium text-foreground">
                                 {item.label}
-                                {isActive && <span className="h-1.5 w-1.5 rounded-full bg-primary-foreground" />}
+                                {isActive && <span className="h-2 w-2 rounded-full bg-primary" />}
                               </div>
                               <div className={cn("text-xs", isActive ? "text-primary-foreground/75" : "text-muted-foreground")}>
                                 {item.description}
@@ -311,23 +292,22 @@ export const AIPoweredHeader = () => {
                       );
                     })}
                   </div>
+                </div>
 
-                  <div className="border-t pt-4 space-y-3">
+                <DrawerFooter>
+                  <div className="space-y-3">
+                    <AIPoweredAddGoalDialog />
+                    <div className="grid gap-2 sm:grid-cols-2">
+                      <Button variant="outline" size="sm" className="w-full justify-center">
+                        <Settings className="w-4 h-4 mr-2" />
+                        Settings
+                      </Button>
+                      <ThemeToggle />
+                    </div>
                     <div className="flex items-center justify-between">
-                      <span className="text-sm font-medium">Account</span>
-                    </div>
-                    <div>
-                      <AIPoweredAddGoalDialog />
-                    </div>
-                    <div className="flex items-center justify-between pt-2">
                       <XPIndicator />
                       <NotificationBell />
                     </div>
-                    <div className="flex justify-center">
-                      <ThemeToggle />
-                    </div>
-
-                    {/* AI Status */}
                     <Card className="bg-primary/10 border-primary/20">
                       <CardContent className="p-3">
                         <div className="flex items-center gap-2 text-sm">
@@ -340,39 +320,35 @@ export const AIPoweredHeader = () => {
                       </CardContent>
                     </Card>
                   </div>
-                </div>
-              </SheetContent>
-            </Sheet>
+                </DrawerFooter>
+              </DrawerContent>
+            </Drawer>
+
+            <div className="hidden md:flex items-center gap-2">
+              <XPIndicator />
+              <NotificationBell />
+              <ThemeToggle />
+              {quickActions.map((action, index) => {
+                const Icon = iconMap[action.icon as keyof typeof iconMap] || Lightbulb;
+                return (
+                  <Button
+                    key={index}
+                    variant="outline"
+                    size="sm"
+                    onClick={() => runQuickAction(action.label, action.action)}
+                    className="gap-2"
+                  >
+                    <Icon className="w-4 h-4" />
+                    {action.label}
+                  </Button>
+                );
+              })}
+              <AIPoweredAddGoalDialog />
+            </div>
           </div>
         </div>
 
-        {/* Desktop Navigation */}
-        <div className="hidden md:block">
-          <Tabs value={currentTab} className="w-full">
-            <TabsList className="grid h-12 w-full auto-cols-fr grid-flow-col">
-              {navigationItems.filter(item => item.visible).map((item) => {
-                const Icon = iconMap[item.icon as keyof typeof iconMap] || Home;
-                const isActive = currentTab === item.id;
-                return (
-                  <TabsTrigger
-                    key={item.id}
-                    value={item.id}
-                    className={cn(
-                      "relative flex h-10 items-center gap-2 rounded-md border border-transparent px-3 font-medium text-muted-foreground transition-all",
-                      "hover:border-border hover:bg-background/70 hover:text-foreground",
-                      "data-[state=active]:border-primary/30 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-md"
-                    )}
-                    onClick={() => navigateToTab(item.id)}
-                  >
-                    <Icon className={cn("w-4 h-4", isActive ? "text-primary-foreground" : "text-muted-foreground")} />
-                    <span className="hidden lg:inline">{item.label}</span>
-                    {isActive && <span className="absolute bottom-1 h-1 w-5 rounded-full bg-primary-foreground/80" />}
-                  </TabsTrigger>
-                );
-              })}
-            </TabsList>
-          </Tabs>
-        </div>
+        {/* Navigation drawer is handled by the button above */}
 
         {/* Mobile AI Insights Banner */}
         <div className="md:hidden">

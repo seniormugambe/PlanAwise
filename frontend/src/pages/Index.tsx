@@ -1,4 +1,3 @@
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { AIPoweredHeader } from "@/components/AIPoweredHeader";
 import { AIPoweredDashboard } from "@/components/AIPoweredDashboard";
 import { GoalTracker } from "@/components/GoalTracker";
@@ -14,100 +13,57 @@ import { useGamification } from "@/hooks/useGamification";
 import { SavingsRecommendations } from "@/components/SavingsRecommendations";
 import { InvestmentAdvice } from "@/components/InvestmentAdvice";
 import { useNavigate, useSearchParams } from "react-router-dom";
-import {
-  Bell,
-  Home,
-  PieChart,
-  Target,
-  TrendingUp,
-  Wallet,
-} from "lucide-react";
-import { cn } from "@/lib/utils";
+import { Bell, Home, PieChart, Target, TrendingUp } from "lucide-react";
 
 const dashboardTabs = ["dashboard", "budget", "investments", "goals", "notifications"] as const;
+
+const mobileNavigationItems = [
+  { id: "dashboard", label: "Home", icon: Home },
+  { id: "budget", label: "Budget", icon: PieChart },
+  { id: "investments", label: "Invest", icon: TrendingUp },
+  { id: "goals", label: "Goals", icon: Target },
+  { id: "notifications", label: "Alerts", icon: Bell },
+] as const;
 
 const Index = () => {
   const { stats, showLevelUp, showAchievement } = useGamification();
   const navigate = useNavigate();
-  const [searchParams, setSearchParams] = useSearchParams();
+  const [searchParams] = useSearchParams();
 
   const requestedTab = searchParams.get("tab") || "dashboard";
   const currentTab = dashboardTabs.includes(requestedTab as typeof dashboardTabs[number])
     ? requestedTab
     : "dashboard";
 
-  const handleTabChange = (tab: string) => {
-    if (tab === "wallets") {
-      navigate("/wallets");
-      return;
-    }
-
-    setSearchParams(tab === "dashboard" ? {} : { tab });
-  };
-
-  const mobileTabs = [
-    { id: "dashboard", label: "Dashboard", icon: Home },
-    { id: "budget", label: "Budget", icon: PieChart },
-    { id: "investments", label: "Invest", icon: TrendingUp },
-    { id: "goals", label: "Goals", icon: Target },
-    { id: "notifications", label: "Activity", icon: Bell },
-    { id: "wallets", label: "Wallets", icon: Wallet },
-  ];
 
   return (
     <div className="min-h-screen bg-background">
       <AIPoweredHeader />
 
       <div className="container mx-auto p-4 pb-20 md:pb-8">
-        {/* Mobile Tab Navigation - Only show on mobile */}
+        {/* Mobile content is controlled by the drawer navigation */}
         <div className="md:hidden mb-6">
-          <Tabs value={currentTab} onValueChange={handleTabChange} className="w-full">
-            <TabsList className="mb-4 flex h-auto w-full justify-start gap-1 overflow-x-auto p-1">
-              {mobileTabs.map((tab) => {
-                const Icon = tab.icon;
-                const isActive = currentTab === tab.id;
-
-                return (
-                  <TabsTrigger
-                    key={tab.id}
-                    value={tab.id}
-                    className={cn(
-                      "relative min-w-20 flex-col gap-1 rounded-md border border-transparent px-3 py-2 text-xs text-muted-foreground transition-all",
-                      "data-[state=active]:border-primary/30 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:shadow-md"
-                    )}
-                  >
-                    <Icon className={cn("h-4 w-4", isActive ? "text-primary-foreground" : "text-muted-foreground")} />
-                    {tab.label}
-                    {isActive && <span className="absolute bottom-1 h-1 w-4 rounded-full bg-primary-foreground/80" />}
-                  </TabsTrigger>
-                );
-              })}
-            </TabsList>
-
-            <TabsContent value="dashboard" className="space-y-6 mt-4">
-              <AIPoweredDashboard />
-            </TabsContent>
-
-            <TabsContent value="budget" className="space-y-6 mt-4">
+          {currentTab === "dashboard" && <AIPoweredDashboard />}
+          {currentTab === "budget" && (
+            <div className="space-y-6">
               <BudgetAnalysis />
               <CashflowChart />
-            </TabsContent>
-
-            <TabsContent value="investments" className="mt-4">
+            </div>
+          )}
+          {currentTab === "investments" && (
+            <div className="space-y-6">
               <InvestmentAdvice />
               <InvestmentHub />
-            </TabsContent>
-
-            <TabsContent value="goals" className="space-y-6 mt-4">
+            </div>
+          )}
+          {currentTab === "goals" && (
+            <div className="space-y-6">
               <GoalTracker />
               <SavingsProgress />
               <SavingsRecommendations />
-            </TabsContent>
-
-            <TabsContent value="notifications" className="mt-4">
-              <NotificationCenter />
-            </TabsContent>
-          </Tabs>
+            </div>
+          )}
+          {currentTab === "notifications" && <NotificationCenter />}
         </div>
 
         {/* Desktop Content - Show all content without tabs */}
