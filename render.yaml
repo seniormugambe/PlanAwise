@@ -1,39 +1,16 @@
 services:
-  # API Backend Service
-  - type: web
-    name: planwise-api
-    env: node
-    plan: free
-    buildCommand: cd backend && npm install && npm run build
-    startCommand: cd backend && npm start
-    envVars:
-      - key: NODE_ENV
-        value: production
-      - key: GEMINI_API_KEY
-        sync: false
-      - key: GEMINI_MODEL
-        value: gemini-2.5-flash-lite
-      - key: AI_PROVIDER
-        value: auto
-      - key: VERTEX_API_KEY
-        sync: false
-      - key: OPENAI_API_KEY
-        sync: false
-      - key: OPENAI_MODEL
-        value: gpt-4o-mini
-      - key: VITE_API_URL
-        value: https://planwise-api.onrender.com
   - type: web
     name: planwise-web
     env: node
     plan: free
-    buildCommand: cd frontend && npm install && npm run build
-    startCommand: cd frontend && npm run preview
+    root: frontend
+    buildCommand: npm install && npm run build
+    startCommand: npm run preview
     envVars:
       - key: NODE_ENV
         value: production
       - key: VITE_API_URL
-        value: https://planwise-api.onrender.com
+        sync: false
       - key: VITE_GEMINI_API_KEY
         sync: false
       - key: VITE_WALLETCONNECT_PROJECT_ID
